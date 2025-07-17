@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="E_CognexCameraLoadFileStatus" Id="{ca6b5ca6-711a-4a34-adfb-28fc54b35870}">
+    <Declaration><![CDATA[{attribute 'strict'}
+TYPE E_CognexCameraLoadFileStatus :
+(
+	WAITING_FOR_STATUS_CODE						:= 2,
+	THE_COMMAND_WAS_EXECUTED_SUCCESSFULLY		:= 1,
+	UNRECOGNIZED_COMMAND 						:= 0,
+	THE_FILENAME_IS_MISSING						:= -1,
+	THE_JOB_FAILED_TO_LOAD 						:= -2,
+	THE_VISION_SYSTEM_IS_OUT_OF_MEMORY			:= -4,
+	USER_DOES_NOT_HAVE_FULL_ACCESS				:= -6
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

@@ -1,0 +1,251 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_TcpServer" Id="{b6047bdc-5ce3-41ad-8d49-28659384d1fe}" SpecialFunc="None">
+    <Declaration><![CDATA[(* 
+:Description: This function block represent basic TCP/IP client.
+*)
+FUNCTION_BLOCK FB_TcpServer EXTENDS FB_TcpDevice
+VAR
+	(* Internal command *)
+	bDisconnect			: BOOL := FALSE;		(* Disconnect server from current connection *)	
+	
+	(* Internal parameters *)
+	stHListener			: T_HSOCKET;			(* Server listener handle *)
+	
+	(* Internal status *)
+	eTcpServerState		: E_TcpIpServerStateRunning;	(* Current server state while running *)
+	
+	(* Function blocks*)
+	fbSocketAccept		: FB_SocketAccept;		(* FB to listen for clienncts connection requests *)
+	fbSocketListen		: FB_SocketListen;		(* FB create servers listener socket *)
+	
+END_VAR
+(*
+Version history:
+
++-------------+------------+----------------+----------+-------------------------------------------------------------------------------------+
+|Date         | Version    | created under  | Author   | Remark                                                                              |
++=============+============+================+==========+=====================================================================================+
+|2022-01      | 1.0.0.0    | V3.1.4024.22   | ADBO     | Function block created                                                              |
++-------------+------------+----------------+----------+-------------------------------------------------------------------------------------+
+|2022-02      | 1.1.0.0    | V3.1.4024.22   | ADBO     | - Added fixes to init failure reset (MS_Aborting)                                   |
+|             |            |                |          | - Changed aproach in executing all FB's ( Deleted checking error before executing ) |
++-------------+------------+----------------+----------+-------------------------------------------------------------------------------------+
+|2022-02      | 1.1.1.0    | V3.1.4024.22   | ADBO     | - Fixed bug when MR_Disconect stucked before switch to connection closing state     |
++-------------+------------+----------------+----------+-------------------------------------------------------------------------------------+
+
+*)]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[SUPER^();]]></ST>
+    </Implementation>
+    <Folder Name="Properties" Id="{d17b8013-18ba-43a0-9200-1e121def3ae9}">
+      <Folder Name="Status" Id="{b4bfd91f-9521-4721-b9d0-f490022dde1d}" />
+    </Folder>
+    <Folder Name="Requests" Id="{1a4e76bd-8780-45fa-a0c9-ebe5bff0e8e1}" />
+    <Folder Name="StateMachine" Id="{20aa2f9d-7328-422e-981f-2a2d87d1954a}" />
+    <Method Name="MR_Disconnect" Id="{310246d8-5896-4769-9811-1b05f95c12c1}" FolderPath="Requests\">
+      <Declaration><![CDATA[(* Stop connection with current client and wait for another connection *)
+METHOD MR_Disconnect : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF eTcpDeviceState = TCPIP_DEVICE_RUNNING AND eTcpServerState = TCPIP_SERVER_RUNNING_DATA_EXCHANGE THEN
+	bDisconnect := TRUE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : disconnection requested'));
+
+ELSIF eTcpDeviceState = TCPIP_DEVICE_RUNNING AND eTcpServerState = TCPIP_SERVER_RUNNING_CLOSE_CONNECTION_DONE THEN
+	bDisconnect := FALSE;
+	MR_Disconnect := TRUE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : disconnection done'));
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_Aborting" Id="{604d5fb3-31e7-4781-ae4d-5c61dd986a27}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[METHOD PROTECTED MS_Aborting
+
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF bInitFailed THEN
+	fbSocketListen( bExecute := FALSE);
+	fbSocketAccept( bExecute := FALSE);
+	eTcpDeviceState := TCPIP_DEVICE_UNINITIALIZED;
+	
+ELSE
+	stSocketToClose := stHListener;
+	SUPER^.MS_Aborting();
+	
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_Initializing" Id="{321ba328-2233-4115-a422-71a0eafb28a3}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[(* TCP/IP server is preparing to work *)
+METHOD PROTECTED MS_Initializing
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[SUPER^.MS_Initializing();
+
+(* Creating server listener socket at selected address and port *)
+fbSocketListen( sSrvNetId	:= sAmsNetID,
+				sLocalHost	:= sHost,
+				nLocalPort	:= iPort,
+				bExecute	:= TRUE,
+				tTimeout	:= DEFAULT_ADS_TIMEOUT,
+				hListener	=> stHListener);
+					
+(* Socket created *)	
+IF NOT fbSocketListen.bBusy AND NOT fbSocketListen.bError THEN
+	fbSocketListen( bExecute := FALSE);
+	eTcpDeviceState := TCPIP_DEVICE_READY_INITIALIZED;
+	eTcpServerState := TCPIP_SERVER_RUNNING_START_LISTENING;
+		
+(* Error occured while creating listener socket *)
+ELSIF fbSocketListen.bError THEN	
+	bError := TRUE;
+	iErrorID := fbSocketListen.nErrId;
+	fbAlarmCreatingListener.ipArguments.Clear().AddUDInt(iErrorID);	
+	fbAlarmCreatingListener.Raise(0);
+	
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_Running" Id="{98ccb962-90a0-40b2-adcd-6611dcaa7324}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[METHOD PROTECTED MS_Running
+VAR_INST
+	stDataToSend	:	ST_TcpBufferData;			(* Data to send structure *)
+	stReceivedData	:	ST_TcpBufferData;			(* Recived data structure *)
+	bRepeatLoop		:	BOOL;						(* Loop control bit *)
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[CASE eTcpServerState OF
+	(* Reset listening FB*)
+	TCPIP_SERVER_RUNNING_START_LISTENING:
+		fbSocketAccept( bExecute := FALSE);
+		eTcpServerState := TCPIP_SERVER_RUNNING_WAIT_FOR_CONNECTION;
+	
+	(* Wait for client connection *)
+	TCPIP_SERVER_RUNNING_WAIT_FOR_CONNECTION:
+		fbSocketAccept( sSrvNetId	:= sAmsNetID,
+						hListener	:= stHListener,
+						bExecute	:= TRUE,
+						tTimeout	:= tTimeout);
+			
+		(* FB finished work without error *)			
+		IF NOT fbSocketAccept.bBusy AND NOT fbSocketAccept.bError THEN
+			(* Client connected *)
+			IF fbSocketAccept.bAccepted THEN
+				stHSocket := fbSocketAccept.hSocket;
+				fbSocketAccept( bExecute := FALSE);
+				
+				eTcpDeviceSendState := TCPIP_DEVICE_DATA_EXCHANGE_GET_SEND_DATA;
+				eTcpDeviceReciveState := TCPIP_DEVICE_DATA_EXCHANGE_GET_RECIVED_DATA;
+				eTcpServerState := TCPIP_SERVER_RUNNING_DATA_EXCHANGE;
+				fbMachineLogger.MR_AddLogs(CONCAT(sName,' : client connected'));
+			
+				(* Client not connected *)
+			ELSE
+				eTcpServerState := TCPIP_SERVER_RUNNING_START_LISTENING;
+				
+			END_IF
+			
+		(* Error occured while waiting for connection *)	
+		ELSIF fbSocketAccept.bError THEN
+			bError := TRUE;
+			iErrorID := fbSocketAccept.nErrId;
+			fbAlarmWaitingForClient.ipArguments.Clear().AddUDInt(iErrorID);	
+			fbAlarmWaitingForClient.Raise(0);
+			
+		END_IF
+			
+	
+	TCPIP_SERVER_RUNNING_DATA_EXCHANGE:
+		(* Safe end of data exchange - disconnect from current connection *)
+		IF bDisconnect THEN
+			fbReceiveBuffer.MR_Clear();
+			fbSendBuffer.MR_Clear();
+			fbSocketSend(bExecute := FALSE);
+			fbSocketRecive(bExecute := FALSE);
+			
+			IF NOT fbSocketSend.bBusy AND NOT fbSocketRecive.bBusy THEN
+				eTcpServerState := TCPIP_SERVER_RUNNING_CLOSE_CONNECTION;
+				
+			END_IF
+			
+		(* Standard data exchange procedure *)
+		ELSE
+			SUPER^.MS_Running(); 
+			
+		END_IF	
+	
+	TCPIP_SERVER_RUNNING_CLOSE_CONNECTION:
+		(* Close current connection *)
+		fbSocketClose( 	sSrvNetId 	:= sAmsNetID,
+						hSocket		:= stHSocket,
+						bExecute	:= TRUE,
+						tTimeout	:= tTimeout);
+			
+		(* Connection closed *)
+		IF NOT fbSocketClose.bBusy AND NOT fbSocketClose.bError THEN
+			fbSocketClose( bExecute := FALSE);
+			eTcpServerState := TCPIP_SERVER_RUNNING_CLOSE_CONNECTION_DONE;
+			
+		(* Error occured while closing the connection *)
+		ELSIF fbSocketClose.bError THEN
+			bError := TRUE;
+			iErrorID := fbSocketClose.nErrId;
+			fbAlarmClosingConnection.ipArguments.Clear().AddUDInt(iErrorID);	
+			fbAlarmClosingConnection.Raise(0);
+			
+		END_IF
+	
+	TCPIP_SERVER_RUNNING_CLOSE_CONNECTION_DONE:
+		(* Disconnect procedure done *)
+		IF NOT bDisconnect THEN
+			fbSocketSend( bExecute := FALSE);
+			fbSocketRecive( bExecute := FALSE);
+			bError := FALSE;
+			iErrorID := 0;
+			bConnectionLostError := FALSE;
+			eTcpServerState := TCPIP_SERVER_RUNNING_START_LISTENING;
+			
+		END_IF	
+	
+END_CASE]]></ST>
+      </Implementation>
+    </Method>
+    <Property Name="ServerState" Id="{d4a20456-4ef1-4860-8625-f17aa15ba3fd}" FolderPath="Properties\Status\">
+      <Declaration><![CDATA[PROPERTY ServerState : REFERENCE TO E_TcpIpServerStateRunning]]></Declaration>
+      <Get Name="Get" Id="{4ab43784-5778-4227-9501-290d5eae8df4}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[ServerState REF= eTcpServerState;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <LineIds Name="FB_TcpServer">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpServer.MR_Disconnect">
+      <LineId Id="3" Count="7" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpServer.MS_Aborting">
+      <LineId Id="3" Count="8" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpServer.MS_Initializing">
+      <LineId Id="3" Count="22" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpServer.MS_Running">
+      <LineId Id="3" Count="92" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpServer.ServerState.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

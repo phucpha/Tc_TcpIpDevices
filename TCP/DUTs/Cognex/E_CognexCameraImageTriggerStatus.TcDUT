@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="E_CognexCameraImageTriggerStatus" Id="{8c1fa397-38e1-4885-9486-5223b1a513fc}">
+    <Declaration><![CDATA[{attribute 'strict'}
+TYPE E_CognexCameraImageTriggerStatus :
+(
+	WAITING_FOR_STATUS_CODE										:= 2,
+	THE_COMMAND_WAS_EXECUTED_SUCCESSFULLY						:= 1,
+	UNRECOGNIZED_COMMAND 										:= 0,
+	THE_NUMBER_IS_EITHER_OUT_OF_RANGE_OR_NOT_AN_INTEGER 		:= -1,
+	THE_COMMAND_COULD_NOT_BE_EXECUTED_OR_THE_SENSOR_IS_OFFLINE 	:= -2,
+	USER_DOES_NOT_HAVE_FULL_ACCESS								:= -6
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

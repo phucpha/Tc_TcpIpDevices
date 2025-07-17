@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="E_TcpIpDeviceState" Id="{6ede0b6c-51fc-49fa-992b-4ec1fea6fcb3}">
+    <Declaration><![CDATA[{attribute 'strict'}
+TYPE E_TcpIpDeviceState :
+(
+	TCPIP_DEVICE_UNINITIALIZED 		:= 0,	(* Function block not ready to work - disconnected *)
+	TCPIP_DEVICE_INITIALIZING		:= 10,	(* TCP/IP client creating client socket / TCP/IP server creating listener socket *)
+	TCPIP_DEVICE_READY_INITIALIZED	:= 20,	(* Initialization finieshed successfull *)
+	TCPIP_DEVICE_RUNNING			:= 30,	(* TCP/IP client data exchange with server / TCP/IP server listening for clients or data exchange with client *)
+	TCPIP_DEVICE_ABORTING			:= -10	(* Closing connection and deinitialization of function block *)
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

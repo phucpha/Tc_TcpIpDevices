@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="E_CognexCameraGetConnectionStatus" Id="{07bbe2bd-88f2-4c05-b7b1-934c17315084}">
+    <Declaration><![CDATA[{attribute 'strict'}
+TYPE E_CognexCameraGetConnectionStatus :
+(
+	WAITING_FOR_STATUS_CODE						:= 2,
+	THE_COMMAND_WAS_EXECUTED_SUCCESSFULLY		:= 1,
+	UNRECOGNIZED_COMMAND 						:= 0,
+	THE_CELL_ID_IS_INVALID						:= -1,
+	THE_COMMAND_COULD_NOT_BE_EXECUTED 			:= -2,
+	USER_DOES_NOT_HAVE_FULL_ACCESS				:= -6
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

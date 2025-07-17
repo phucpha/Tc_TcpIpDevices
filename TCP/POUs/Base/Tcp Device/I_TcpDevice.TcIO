@@ -1,0 +1,102 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <Itf Name="I_TcpDevice" Id="{24641fed-fe0c-4c17-ac00-6a81e0cb7f9a}">
+    <Declaration><![CDATA[INTERFACE I_TcpDevice
+]]></Declaration>
+    <Property Name="Active" Id="{e6e78939-3bec-453c-94fd-ceb2da17de4b}">
+      <Declaration><![CDATA[PROPERTY Active : REFERENCE TO BOOL]]></Declaration>
+      <Get Name="Get" Id="{eed37a80-1f58-4113-9cfc-79cd624c49d5}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+    <Property Name="AmsNetId" Id="{f3c16fe1-985d-4794-92fc-0553d5d26b52}">
+      <Declaration><![CDATA[PROPERTY AmsNetId : T_IPv4Addr]]></Declaration>
+      <Get Name="Get" Id="{ad05585d-a341-44ea-833c-9638feff184d}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+      <Set Name="Set" Id="{2dab40f5-d94b-44b8-8920-4c58e4d3cf65}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Set>
+    </Property>
+    <Property Name="Error" Id="{18b96bbc-5ddc-4554-9767-c3856f1495c8}">
+      <Declaration><![CDATA[PROPERTY Error : REFERENCE TO BOOL]]></Declaration>
+      <Get Name="Get" Id="{1eb3bc57-f6b3-4078-9247-def055dbdf6f}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+    <Property Name="ErrorID" Id="{75c8d22c-5b3d-4aca-b038-2efc9b31e3b5}">
+      <Declaration><![CDATA[PROPERTY ErrorID : REFERENCE TO UDINT]]></Declaration>
+      <Get Name="Get" Id="{e67f7001-ed6f-4197-8d5d-2e93cd3f31a2}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+    <Property Name="Host" Id="{e8bc6caa-ba3c-49fe-b1ae-321f66c6df87}">
+      <Declaration><![CDATA[PROPERTY Host : T_IPv4Addr]]></Declaration>
+      <Get Name="Get" Id="{e040dc30-5927-4fdb-9bc5-daff8d153b56}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+      <Set Name="Set" Id="{4406a13c-44da-4e2b-928a-3e793c107a24}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Set>
+    </Property>
+    <Property Name="LastRecivedMessage" Id="{3798787f-9098-460b-b8af-f91d765d2507}">
+      <Declaration><![CDATA[PROPERTY LastRecivedMessage : ST_TcpBufferData]]></Declaration>
+      <Get Name="Get" Id="{b2610185-8255-458b-97a9-4b59bd498eb3}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+    <Method Name="MR_Abort" Id="{769cd83c-40db-4fb2-aebc-dd8ea19ebb89}">
+      <Declaration><![CDATA[METHOD MR_Abort : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="MR_FirstCycle" Id="{cf8eacf6-dc9a-4f90-9f0e-4234ff6db895}">
+      <Declaration><![CDATA[METHOD MR_FirstCycle : BOOL
+VAR_INPUT
+	sName 		: STRING;		(*  *)
+	sHost		: T_IPv4Addr;	(*  *)
+	sAmsNetID	: T_AmsNetID;	(*  *)
+	iPort		: UINT;			(*  *)
+	tTimeout	: TIME;			(*  *)
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="MR_Init" Id="{4583fa0a-1fb6-41d4-adb2-4edf06982c1d}">
+      <Declaration><![CDATA[METHOD MR_Init : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Property Name="NextRecivedMessage" Id="{1093f905-dd34-4788-8088-36459b46f8ff}">
+      <Declaration><![CDATA[PROPERTY NextRecivedMessage : ST_TcpBufferData]]></Declaration>
+      <Get Name="Get" Id="{bdf418df-7520-465d-bb35-f8dbe577629f}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+    <Property Name="Port" Id="{f541c0e6-0474-4220-b6e1-fa5c3a040faa}">
+      <Declaration><![CDATA[PROPERTY Port : UINT]]></Declaration>
+      <Get Name="Get" Id="{2ea7bed2-0e99-459b-978e-f586ac4ca061}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+      <Set Name="Set" Id="{a1982a94-5dd5-4134-8c57-f27831474b14}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Set>
+    </Property>
+    <Property Name="State" Id="{d2bc7920-f576-46c7-a2a1-841f510b29cd}">
+      <Declaration><![CDATA[PROPERTY State : REFERENCE TO E_TcpIpDeviceState]]></Declaration>
+      <Get Name="Get" Id="{bf49696b-3bc0-47ff-ab8e-49a575a61d3b}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+    <Property Name="Timeout" Id="{1816e9d4-9944-4fc6-a56f-05dde3353985}">
+      <Declaration><![CDATA[PROPERTY Timeout : TIME]]></Declaration>
+      <Get Name="Get" Id="{4157fa2d-cc8c-4fef-92e8-3476043ac959}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+      <Set Name="Set" Id="{93014aca-0db0-4bcb-a462-30cc1c18e385}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Set>
+    </Property>
+  </Itf>
+</TcPlcObject>

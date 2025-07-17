@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="E_CognexCameraMethodState" Id="{3971230c-0d00-4ace-b5e9-7b4f9625782b}">
+    <Declaration><![CDATA[{attribute 'strict'}
+TYPE E_CognexCameraMethodState :
+(
+	CAMERA_METHOD_SEND_COMMAND 			:= 0,
+	CAMERA_METHOD_RECEIVE_RESPONSE 		:= 10
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

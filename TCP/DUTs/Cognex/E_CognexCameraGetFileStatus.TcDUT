@@ -1,0 +1,15 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="E_CognexCameraGetFileStatus" Id="{2cea9dfc-3f2a-4d3d-a217-95cf1573239b}">
+    <Declaration><![CDATA[{attribute 'strict'}
+TYPE E_CognexCameraGetFileStatus :
+(
+	WAITING_FOR_STATUS_CODE						:= 2,
+	THE_COMMAND_WAS_EXECUTED_SUCCESSFULLY		:= 1,
+	UNRECOGNIZED_COMMAND 						:= 0,
+	THE_ACTIVE_JOB_HAS_NOT_BEEN_SAVED 			:= -2
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

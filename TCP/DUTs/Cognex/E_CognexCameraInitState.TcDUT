@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="E_CognexCameraInitState" Id="{c9add8e2-ca2f-47e0-81f7-fbade4edc0c0}">
+    <Declaration><![CDATA[{attribute 'strict'}
+TYPE E_CognexCameraInitState :
+(
+	CAMERA_INIT_CONNECTION 				:= 0,
+	CAMERA_INIT_CLEAR_BUFFER			:= 10,	
+	CAMERA_INIT_WAIT_FOR_USERNAME 		:= 20,	
+	CAMERA_INIT_WRITE_USER				:= 30,	
+	CAMERA_INIT_WAIT_FOR_PASSWORD 		:= 40,	
+	CAMERA_INIT_WRITE_PASSWORD			:= 50,	
+	CAMERA_INIT_WAIT_FOR_CONFIRMATION	:= 60,
+	CAMERA_INIT_DONE					:= 80
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

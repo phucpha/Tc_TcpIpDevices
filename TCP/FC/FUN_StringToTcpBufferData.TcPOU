@@ -1,0 +1,64 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FUN_StringToTcpBufferData" Id="{634c64f8-7380-48ba-ba53-78cc0223e1e3}" SpecialFunc="None">
+    <Declaration><![CDATA[(* :Description:  This function is used to convert string into bytes structure, ready to send it via TCP/IP protocole *)
+FUNCTION FUN_StringToTcpBufferData : BOOL
+VAR_INPUT
+	sMessageAddr 	: PVOID;					(* Source string message *)
+	stSendDataAddr	: PVOID;					(* Destination TCP/IP data structure *)
+END_VAR
+VAR
+	psMessage	: POINTER TO STRING;			(* Pointer to string converted to structure *)
+	pstSendData	: POINTER TO ST_TcpBufferData;	(* Pointer to structure made of string bytes *)
+END_VAR
+(*
+Version history:
+
++-------------+------------+----------------+----------+------------------------------------------+
+|Date         | Version    | created under  | Author   | Remark                                   |
++=============+============+================+==========+==========================================+
+|2022-01      | 1.0.0.0    | V3.1.4024.22   | ADBO     | Function block created                   |
++-------------+------------+----------------+----------+------------------------------------------+
+
+*)]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[(* Check if any input address is different than zero*)
+IF sMessageAddr <> 0 AND stSendDataAddr <> 0 THEN
+	(* Access to adress*)
+	psMessage := sMessageAddr;
+	pstSendData := stSendDataAddr;
+	
+	pstSendData^.iLength := INT_TO_UDINT(LEN(psMessage^));
+	
+	(* Copy bytes from string to structure *)
+	MEMCPY(destAddr := stSendDataAddr, srcAddr := sMessageAddr, n := pstSendData^.iLength);
+
+	(* Function done *)
+	FUN_StringToTcpBufferData := TRUE;
+(* One of adresses was not correct *)
+ELSE
+	FUN_StringToTcpBufferData := FALSE;
+END_IF
+
+]]></ST>
+    </Implementation>
+    <LineIds Name="FUN_StringToTcpBufferData">
+      <LineId Id="50" Count="0" />
+      <LineId Id="24" Count="0" />
+      <LineId Id="51" Count="0" />
+      <LineId Id="32" Count="0" />
+      <LineId Id="34" Count="2" />
+      <LineId Id="40" Count="0" />
+      <LineId Id="53" Count="0" />
+      <LineId Id="38" Count="0" />
+      <LineId Id="54" Count="0" />
+      <LineId Id="33" Count="0" />
+      <LineId Id="27" Count="0" />
+      <LineId Id="55" Count="0" />
+      <LineId Id="30" Count="1" />
+      <LineId Id="28" Count="0" />
+      <LineId Id="21" Count="0" />
+      <LineId Id="20" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

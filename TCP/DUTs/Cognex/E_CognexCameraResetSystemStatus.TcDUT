@@ -1,0 +1,14 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="E_CognexCameraResetSystemStatus" Id="{4068e00c-9278-4a9e-8f7c-d0cca12c1b7b}">
+    <Declaration><![CDATA[{attribute 'strict'}
+TYPE E_CognexCameraResetSystemStatus :
+(
+	WAITING_FOR_STATUS_CODE					:= 2,	
+	THE_COMMAND_WAS_EXECUTED_SUCCESSFULLY	:= -1,
+	USER_DOES_NOT_HAVE_FULL_ACCESS			:= -6
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

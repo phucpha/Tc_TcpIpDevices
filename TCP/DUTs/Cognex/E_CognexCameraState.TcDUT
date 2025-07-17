@@ -1,0 +1,39 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="E_CognexCameraState" Id="{5b2f679f-8b92-4bd5-9553-1f0f210bb99f}">
+    <Declaration><![CDATA[{attribute 'strict'}
+TYPE E_CognexCameraState :
+(
+	CAMERA_UNINITIALIZED 				:= 0,	(* Not ready to work *)
+	CAMERA_INITIALIZING					:= 10,	(* Preparing to work *)
+	CAMERA_READY 						:= 20,	(* Ready to work *)
+	CAMERA_IDLE							:= 30,	(* Waiting for commands *)
+	CAMERA_RESET 						:= 40,	(* Reseting function block *)
+	CAMERA_LOAD_FILE					:= 50,
+	CAMERA_GET_FILE						:= 60,
+	CAMERA_GET_VALUE_EASY_BUILDER		:= 70,
+	CAMERA_GET_VALUE_SPREADSHEET		:= 80,
+	CAMERA_SET_ONLINE					:= 90,
+	CAMERA_GET_ONLINE					:= 100,
+	CAMERA_RESET_SYSTEM					:= 110,
+	CAMERA_GET_CONNECTIONS				:= 120,
+	CAMERA_GET_EXPR						:= 130,
+	CAMERA_GET_FILE_LIST				:= 140,
+	CAMERA_PUT_LIVE						:= 150,
+	CAMERA_PUT_PORTNUM					:= 160,
+	CAMERA_PUT_TIMEOUT					:= 170,
+	CAMERA_PUT_UPDATE					:= 180,
+	CAMERA_PUT_WATCH					:= 190,
+	CAMERA_SET_JOB						:= 200,
+	CAMERA_GET_JOB						:= 210,
+	CAMERA_STORE_FILE					:= 220,
+	CAMERA_GET_POSITION					:= 230,
+	CAMERA_IMAGE_TRIGGER				:= 240,
+	CAMERA_GET_VALUES					:= 250,
+	CAMERA_METHOD_DONE					:= 260,
+	CAMERA_ABORTING						:= -10	(* Aborting *)
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

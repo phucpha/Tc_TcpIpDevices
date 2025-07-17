@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="E_CognexCameraGetPositionState" Id="{0d09f16f-af23-485b-a8f3-69f65105fc65}">
+    <Declaration><![CDATA[{attribute 'strict'}
+TYPE E_CognexCameraGetPositionState :
+(
+	CAMERA_GET_POSITION_SEND_COMMAND_X				:= 0,
+	CAMERA_GET_POSITION_RECEIVE_RESPONSE_X			:= 10,
+	CAMERA_GET_POSITION_SEND_COMMAND_Y				:= 20,
+	CAMERA_GET_POSITION_RECEIVE_RESPONSE_Y			:= 30,
+	CAMERA_GET_POSITION_SEND_COMMAND_ROTATION		:= 40,
+	CAMERA_GET_POSITION_RECEIVE_RESPONSE_ROTATION	:= 50,
+	CAMERA_GET_POSITION_GETTING_DONE				:= 60
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

@@ -1,0 +1,14 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="E_TcpIpDeviceStateSend" Id="{2b1395b5-deaa-477c-a4b2-46fd550bf985}">
+    <Declaration><![CDATA[{attribute 'strict'}
+TYPE E_TcpIpDeviceStateSend :
+(
+	TCPIP_DEVICE_DATA_EXCHANGE_GET_SEND_DATA	:= 0,	(* Append send data to clear send buffer *)
+	TCPIP_DEVICE_DATA_EXCHANGE_SEND				:= 10,	(* Send data to server*)
+	TCPIP_DEVICE_DATA_EXCHANGE_SEND_DONE		:= 20
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

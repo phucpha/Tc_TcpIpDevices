@@ -1,0 +1,2918 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_CognexCamera" Id="{49770124-b391-4b93-96a1-d07fc049a017}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_CognexCamera IMPLEMENTS I_CognexCamera
+VAR
+	bFirstCycle 						: BOOL := TRUE;				(* First cycle bit *)		
+	sName 								: STRING;					(* TCP/IP device name for other utilities *)	
+ 	                        			
+	(* Internal status *)   			
+	bActive								: BOOL;						(* TCP/IP device initialized and ready to work *)
+	bBusy								: BOOL;						(* TCP/IP device is currently proccesing *)
+	bError								: BOOL;						(* Error occured while executing *)
+	iErrorID 							: UDINT;					(* Error ID*)
+	                        			
+	eCameraState		 				: E_CognexCameraState;			(* Current state of camera connection *)
+	eCameraInitState					: E_CognexCameraInitState;		(* Current state of camera initialization *)
+	eCameraMethodState					: E_CognexCameraMethodState;
+	eCameraGetPositionState				: E_CognexCameraGetPositionState;
+	eCameraGetValuesState				: E_CognexCameraGetValuesState;
+	                        	
+	bConnectionLostError 				: BOOL;						(* Internal data exchange error - occured only in Running state *)
+	
+	eCameraGetConnectionStatus			: E_CognexCameraGetConnectionStatus;
+	eCameraGetExprStatus				: E_CognexCameraGetExprStatus;
+	eCameraGetFileListStatus			: E_CognexCameraGetFileListStatus;
+	eCameraGetFileStatus				: E_CognexCameraGetFileStatus;
+	eCameraGetJobStatus 				: E_CognexCameraGetJobStatus;
+	eCameraGetOnlineStatus				: E_CognexCameraGetOnlineStatus;
+	eCameraGetValueEasyBuilderStatus	: E_CognexCameraGetValueEasyBuilderStatus;
+	eCameraGetValueSpreadsheetStatus	: E_CognexCameraGetValueSpreadsheetStatus;
+	eCameraGetValueStatus				: E_CognexCameraGetValueStatus;
+	eCameraLoadFileStatus				: E_CognexCameraLoadFileStatus;
+	eCameraPutLiveStatus				: E_CognexCameraPutLiveStatus;
+	eCameraPutPortnumStatus				: E_CognexCameraPutPortnumStatus;
+	eCameraPutTimeoutStatus				: E_CognexCameraPutTimeoutStatus;
+	eCameraPutUpdateStatus				: E_CognexCameraPutUpdateStatus;
+	eCameraPutWatchStatus				: E_CognexCameraPutWatchStatus;
+	eCameraResetSystemStatus			: E_CognexCameraResetSystemStatus;
+	eCameraSetJobStatus					: E_CognexCameraSetJobStatus;
+	eCameraSetOnlineStatus				: E_CognexCameraSetOnlineStatus;
+	eCameraStoreFileStatus				: E_CognexCameraStoreFileStatus;
+	eCameraGetPositionStatus			: E_CognexCameraGetPositionStatus;
+	eCameraImageTriggerStatus			: E_CognexCameraImageTriggerStatus;
+	eCameraGetValuesStatus				: E_CognexCameraGetValuesStatus;
+	
+	(* Function blocks *)
+	fbTcpClient 						: FB_TcpClient;				(* FB to create client connection*)
+	
+	(* Timers *)
+	tTimeout							: TON;
+	
+	(* Messages buffers *)
+	stSendData							: ST_TcpBufferData;		(*  *)
+	stReciveData 						: ST_TcpBufferData;		(*  *)
+
+	(* Temporary messeges *)
+	sSendMessage 						: STRING;				(*  *)
+	sReciveMessage						: STRING(1000);			(*  *)
+	arrBufferMessage					: ARRAY[0..10] OF STRING;
+	iMessageIndex	 					: INT;	
+	sNewLine							: STRING := '$R$L';
+	
+	(* Rising edge trigger *)
+	rtError								: R_TRIG; 					(* Rising edge trigger for function block error *)
+	
+	(* Status inormation and number *)
+	iLastStatusCode						: INT; 
+	sLastStatusCode						: STRING;
+	                        			
+	sPositionXVariable					: STRING;
+	sPositionYVariable					: STRING;
+	sRotationVariable					: STRING;
+	                        			
+	sVariable1							: STRING;
+	sVariable2							: STRING;
+	sVariable3							: STRING;
+	sVariable4							: STRING;
+	                        			
+	lrPositionX							: LREAL;
+	lrPositionY							: LREAL;
+	lrRotation							: LREAL;
+                            			
+	lrValue1							: LREAL;
+	lrValue2							: LREAL;
+	lrValue3							: LREAL;
+	lrValue4							: LREAL;
+	                        			
+	sPositionString						: STRING;
+	sPositionStringDel					: STRING; 
+	
+	(* Internal variables of methods *)
+	sCellIndexExpr						: STRING;
+	iColumnExpr 						: INT;
+	iRowExpr 							: INT;
+	sEasyBuilderValueName				: STRING;
+	iColumnValueSpreadsheet				: INT;
+	iRowValueSpreadsheet				: INT;
+	sLoadFileName						: STRING;
+	bEnableLiveAcquisition				: INT;
+	iPortNumber							: INT;
+	iTimeout							: INT;	
+	iUpdateNumber						: INT;
+	iColumnPut 							: INT;
+	iRowPut 							: INT;
+	iOutputEnable						: INT;
+	iJobNumber							: INT;
+	bSetCameraOnline					: INT;
+	sStoreFileName						: STRING;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[(* First cycle procedure *)
+IF bFirstCycle THEN
+	bFirstCycle := FALSE;	
+		
+END_IF
+
+bActive := eCameraState >= CAMERA_READY;
+
+(* Report errors that occur *)
+rtError(CLK:=bError);
+
+IF rtError.Q THEN 
+	fbMachineLogger.MR_AddLogs(FUN_MergeStrings5(sName, ' : Error occured (error ID: ', UDINT_TO_STRING(iErrorID), ')', ''));
+
+END_IF
+
+(* Execute TCP/IP FB and timers *)
+tTimeout();
+fbTcpClient();
+
+(* Execute state machine *)
+StateMachine();]]></ST>
+    </Implementation>
+    <Folder Name="FirstCycle" Id="{a11b2fe3-4f98-42da-b73f-9d28e2265e45}" />
+    <Folder Name="Internal" Id="{ad5bd02d-089a-4e81-aa29-0e72633578a4}" />
+    <Folder Name="Properties" Id="{7d17e8c5-a59b-423f-8053-16866481e142}">
+      <Folder Name="Parameters" Id="{7f984b85-2ffc-4de1-831b-ce85bcac28f0}" />
+      <Folder Name="References" Id="{909b5981-e1cd-43fc-9170-5fc1d242c07d}" />
+      <Folder Name="Status" Id="{2cab68c0-83d2-4741-9a96-13bce925d045}" />
+    </Folder>
+    <Folder Name="Requests" Id="{0f049b0c-d961-482b-ab35-73e17ee2f01b}" />
+    <Folder Name="StateMachine" Id="{77b9a1a3-f0ef-4b65-b484-ee16f847daa0}" />
+    <Property Name="Active" Id="{21e62e33-109e-4cfa-8da0-3919420a2a18}" FolderPath="Properties\Status\">
+      <Declaration><![CDATA[PROPERTY Active : REFERENCE TO BOOL
+]]></Declaration>
+      <Get Name="Get" Id="{08edbf55-39d9-4cf2-8085-708fc62c2a0f}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[Active REF= bActive;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Property Name="Busy" Id="{399d0d92-c7ca-4011-9929-138a63b8bcb6}" FolderPath="Properties\Status\">
+      <Declaration><![CDATA[PROPERTY Busy : REFERENCE TO BOOL
+]]></Declaration>
+      <Get Name="Get" Id="{4765c5c1-4455-437d-b38c-52db4c1070b9}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[Busy REF= bBusy;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Property Name="Error" Id="{2e12cced-0eb6-41da-b687-df0a8da9a8e4}" FolderPath="Properties\Status\">
+      <Declaration><![CDATA[PROPERTY Error : REFERENCE TO BOOL
+]]></Declaration>
+      <Get Name="Get" Id="{2a94321e-6b85-408f-b8ea-b66a0b432499}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[Error REF= bError;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Property Name="ErrorID" Id="{e87892d1-d942-4bf3-b80f-5011f6b619e5}" FolderPath="Properties\Status\">
+      <Declaration><![CDATA[PROPERTY ErrorID : REFERENCE TO UDINT
+]]></Declaration>
+      <Get Name="Get" Id="{db65e3fe-82ed-4735-9e07-41eb42f990e4}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[ErrorID REF= iErrorID;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Method Name="M_ResetParameters" Id="{b008354c-ffc9-44d9-bcd1-ed6b38b00534}" FolderPath="Internal\">
+      <Declaration><![CDATA[METHOD M_ResetParameters : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[eCameraGetConnectionStatus			:= 2;
+eCameraGetExprStatus				:= 2;
+eCameraGetFileListStatus			:= 2;
+eCameraGetFileStatus				:= 2;
+eCameraGetJobStatus 				:= 2;
+eCameraGetOnlineStatus				:= 2;
+eCameraGetValueEasyBuilderStatus	:= 2;
+eCameraGetValueSpreadsheetStatus	:= 2;
+eCameraGetValueStatus				:= 2;
+eCameraLoadFileStatus				:= 2;
+eCameraPutLiveStatus				:= 2;
+eCameraPutPortnumStatus				:= 2;
+eCameraPutTimeoutStatus				:= 2;
+eCameraPutUpdateStatus				:= 2;
+eCameraPutWatchStatus				:= 2;
+eCameraResetSystemStatus			:= 2;
+eCameraSetJobStatus					:= 2;
+eCameraSetOnlineStatus				:= 2;
+eCameraStoreFileStatus				:= 2;
+eCameraGetPositionStatus			:= 2;
+eCameraImageTriggerStatus			:= 2;
+eCameraGetValuesStatus				:= 2;
+
+sSendMessage 						:= '';
+sReciveMessage						:= '';
+iMessageIndex	 					:= 0;	
+
+(* Status inormation and number *)
+iLastStatusCode						:= 0; 
+sLastStatusCode						:= '';
+	
+(* Internal variables of methods *)
+sCellIndexExpr						:= '';
+iColumnExpr 						:= 0;
+iRowExpr 							:= 0;
+sEasyBuilderValueName				:= '';
+iColumnValueSpreadsheet				:= 0;
+iRowValueSpreadsheet				:= 0;
+sLoadFileName						:= '';
+bEnableLiveAcquisition				:= 0;
+iPortNumber							:= 0;
+iTimeout							:= 0;	
+iUpdateNumber						:= 0;
+iColumnPut 							:= 0;
+iRowPut 							:= 0;
+iOutputEnable						:= 0;
+iJobNumber							:= 0;
+bSetCameraOnline					:= 0;
+sStoreFileName						:= '';
+	
+sPositionXVariable					:= '';
+sPositionYVariable					:= '';
+sRotationVariable					:= '';
+
+sVariable1							:= '';
+sVariable2							:= '';
+sVariable3							:= '';
+sVariable4							:= '';
+
+lrPositionX							:= 0.0;
+lrPositionY							:= 0.0;
+lrRotation							:= 0.0;
+
+lrValue1							:= 0.0;
+lrValue2							:= 0.0;			
+lrValue3							:= 0.0;
+lrValue4							:= 0.0;
+
+sPositionString						:= '';
+sPositionStringDel					:= '';	
+
+(* Internal status *)
+bActive								:= 0;						(* TCP/IP device initialized and ready to work *)
+bBusy								:= 0;						(* TCP/IP device is currently proccesing *)
+bError								:= 0;						(* Error occured while executing *)
+iErrorID 							:= 0;					(* Error ID*)
+
+	
+eCameraGetPositionState := 0;
+eCameraGetValuesState := 0;
+eCameraMethodState := 0;
+eCameraInitState := 0;
+
+M_ResetParameters := TRUE;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_Abort" Id="{020cd3eb-5890-4a59-aa75-bb69fafe8f67}" FolderPath="Requests\">
+      <Declaration><![CDATA[METHOD MR_Abort : BOOL
+VAR_INPUT
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF eCameraState >= CAMERA_READY THEN
+	bBusy := TRUE;
+	MR_Abort := FALSE;
+	eCameraState := CAMERA_ABORTING;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : abort requested'));	
+	
+ELSIF eCameraState = CAMERA_UNINITIALIZED THEN
+	bBusy := FALSE;
+	MR_Abort := TRUE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : abort done'));	
+	
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_FirstCycle" Id="{857e4fe9-fd8b-4e0a-a906-0d3ef4b94871}" FolderPath="FirstCycle\">
+      <Declaration><![CDATA[METHOD MR_FirstCycle : BOOL
+VAR_INPUT
+	sCameraName 	: STRING;		(*  *)
+	sClientHost		: T_IPv4Addr;	(*  *)
+	sClientAmsNetID : T_AmsNetID;	(*  *)
+	iClientPort		: UINT;			(*  *)
+	tTimeout		: TIME;			(*  *)
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[(* Set fixture name *)
+THIS^.sName := sCameraName;
+
+(* Set fixture server initial parameters *)
+THIS^.fbTcpClient.MR_FirstCycle(	sName 		:= CONCAT('TCP/IP client of ',sCameraName),
+									sHost		:= sClientHost,
+									sAmsNetID	:= sClientAmsNetID,
+									iPort 		:= iClientPort,
+									tTimeout 	:= tTimeout);]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_GetConnections" Id="{cc19e653-8871-49ff-a386-3dbd4fda83cb}" FolderPath="Requests\">
+      <Declaration><![CDATA[METHOD MR_GetConnections : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF eCameraState = CAMERA_IDLE THEN
+	bBusy := TRUE;
+	MR_GetConnections := FALSE;
+	eCameraState := CAMERA_GET_CONNECTIONS;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : returning current connection information requested'));	
+	
+ELSIF eCameraState = CAMERA_METHOD_DONE THEN
+	bBusy := FALSE;
+	MR_GetConnections := TRUE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : returning current connection information done'));	
+	
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_GetExpr" Id="{60eaee8d-9d27-4d19-b96b-93e8fe554363}" FolderPath="Requests\">
+      <Declaration><![CDATA[METHOD MR_GetExpr : BOOL
+VAR_INPUT
+	sCellIndexExpr	: STRING;
+	iColumnExpr	: INT;
+	iRowExpr	: INT;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF eCameraState = CAMERA_IDLE THEN
+	THIS^.sCellIndexExpr := sCellIndexExpr;
+	THIS^.iColumnExpr	:= iColumnExpr;
+	THIS^.iRowExpr	:= iRowExpr;	
+	bBusy := TRUE;
+	MR_GetExpr := FALSE;
+	eCameraState := CAMERA_GET_EXPR;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : returning the parameters or value stored in the cell requested'));	
+	
+ELSIF eCameraState = CAMERA_METHOD_DONE THEN
+	bBusy := FALSE;
+	MR_GetExpr := TRUE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : returning the parameters or value stored in the cell done'));	
+	
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_GetFile" Id="{11cdf559-2ccb-42f0-a5e4-3903fdc0184f}" FolderPath="Requests\">
+      <Declaration><![CDATA[METHOD MR_GetFile : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF eCameraState = CAMERA_IDLE THEN
+	bBusy := TRUE;
+	MR_GetFile := FALSE;
+	eCameraState := CAMERA_GET_FILE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : getting the filename of the active job requested'));	
+	
+ELSIF eCameraState = CAMERA_METHOD_DONE THEN
+	bBusy := FALSE;
+	MR_GetFile := TRUE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : getting the filename of the active job done'));	
+	
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_GetFileList" Id="{713011e1-ffab-4401-a72f-120ea81f1798}" FolderPath="Requests\">
+      <Declaration><![CDATA[METHOD MR_GetFileList : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF eCameraState = CAMERA_IDLE THEN
+	bBusy := TRUE;
+	MR_GetFileList := FALSE;
+	eCameraState := CAMERA_GET_FILE_LIST;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : returning the number and names of files stored in memory requested'));	
+	
+ELSIF eCameraState = CAMERA_METHOD_DONE THEN
+	bBusy := FALSE;
+	MR_GetFileList := TRUE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : returning the number and names of files stored in memory done'));	
+	
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_GetJob" Id="{bae6f7eb-4494-4409-a998-9a35185f819e}" FolderPath="Requests\">
+      <Declaration><![CDATA[METHOD MR_GetJob : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF eCameraState = CAMERA_IDLE THEN
+	bBusy := TRUE;
+	MR_GetJob := FALSE;
+	eCameraState := CAMERA_GET_JOB;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : returning a status code (ID) of the active job requested'));	
+	
+ELSIF eCameraState = CAMERA_METHOD_DONE THEN
+	bBusy := FALSE;
+	MR_GetJob := TRUE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : returning a status code (ID) of the active job done'));	
+	
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_GetOnline" Id="{a2343b40-a800-450f-aa41-48e137785b44}" FolderPath="Requests\">
+      <Declaration><![CDATA[METHOD MR_GetOnline : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF eCameraState = CAMERA_IDLE THEN
+	bBusy := TRUE;
+	MR_GetOnline := FALSE;
+	eCameraState := CAMERA_GET_ONLINE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : returning the online state of the vision system requested'));	
+	
+ELSIF eCameraState = CAMERA_METHOD_DONE THEN
+	bBusy := FALSE;
+	MR_GetOnline := TRUE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' :  returning the online state of the vision system done'));	
+	
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_GetPosition" Id="{09f822f2-0854-4bf3-bda7-a33eb60e153e}" FolderPath="Requests\">
+      <Declaration><![CDATA[METHOD MR_GetPosition : BOOL
+VAR_INPUT
+	sPositionXVariable		: STRING;
+	sPositionYVariable		: STRING;
+	sRotationVariable		: STRING;
+END_VAR
+
+VAR_OUTPUT
+	lrPositionX				: LREAL;
+	lrPositionY				: LREAL;
+	lrRotation				: LREAL;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF eCameraState = CAMERA_IDLE THEN
+	THIS^.sPositionXVariable := sPositionXVariable;
+	THIS^.sPositionYVariable := sPositionYVariable;
+	THIS^.sRotationVariable := sRotationVariable;
+	bBusy := TRUE;
+	MR_GetPosition := FALSE;
+	eCameraState := CAMERA_GET_POSITION;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : getting current position of the product requested'));	
+	
+ELSIF eCameraState = CAMERA_METHOD_DONE THEN
+	lrPositionX := THIS^.lrPositionX;
+	lrPositionY := THIS^.lrPositionY;
+	lrRotation := THIS^.lrRotation;
+	bBusy := FALSE;
+	MR_GetPosition := TRUE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : getting current position of the product done'));	
+	
+END_IF
+
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_GetValueEasyBuilder" Id="{23c55beb-b45d-4146-9b38-75b00f201ed9}" FolderPath="Requests\">
+      <Declaration><![CDATA[METHOD MR_GetValueEasyBuilder : BOOL
+VAR_INPUT
+	sEasyBuilderValueName	: STRING;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF eCameraState = CAMERA_IDLE THEN
+	THIS^.sEasyBuilderValueName := sEasyBuilderValueName;
+	bBusy := TRUE;
+	MR_GetValueEasyBuilder := FALSE;
+	eCameraState := CAMERA_GET_VALUE_EASY_BUILDER;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : returning the tool result or job data in EasyBuilder requested'));	
+	
+ELSIF eCameraState = CAMERA_METHOD_DONE THEN
+	bBusy := FALSE;
+	MR_GetValueEasyBuilder := TRUE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : returning the tool result or job data in EasyBuilder done'));	
+	
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_GetValues" Id="{0962ebe2-a02f-45ed-9e2c-f78bc8737e59}" FolderPath="Requests\">
+      <Declaration><![CDATA[METHOD MR_GetValues : BOOL
+VAR_INPUT
+	sVariable1				: STRING;
+	sVariable2				: STRING;
+	sVariable3				: STRING;
+	sVariable4				: STRING;
+END_VAR
+
+VAR_OUTPUT
+	lrValue1				: LREAL;
+	lrValue2				: LREAL;
+	lrValue3				: LREAL;
+	lrValue4				: LREAL;	
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF eCameraState = CAMERA_IDLE THEN
+	THIS^.sVariable1 := sVariable1;
+	THIS^.sVariable2 := sVariable2;
+	THIS^.sVariable3 := sVariable3;
+	THIS^.sVariable4 := sVariable4;
+	bBusy := TRUE;
+	MR_GetValues := FALSE;
+	eCameraState := CAMERA_GET_VALUES;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : getting values from camera requested'));	
+	
+ELSIF eCameraState = CAMERA_METHOD_DONE THEN
+	lrValue1 := THIS^.lrValue1;
+	lrValue2 := THIS^.lrValue2;
+	lrValue3 := THIS^.lrValue3;
+	lrValue4 := THIS^.lrValue4;
+	bBusy := FALSE;
+	MR_GetValues := TRUE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : getting values from camera done'));	
+	
+END_IF
+
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_GetValueSpreadsheet" Id="{d15d98ee-0ef4-4d01-a8f9-66abbfa5cb90}" FolderPath="Requests\">
+      <Declaration><![CDATA[METHOD MR_GetValueSpreadsheet : BOOL
+VAR_INPUT
+	iColumnValueSpreadsheet		: INT;
+	iRowValueSpreadsheet		: INT;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF eCameraState = CAMERA_IDLE THEN
+	THIS^.iColumnValueSpreadsheet := iColumnValueSpreadsheet;
+	THIS^.iRowValueSpreadsheet := iRowValueSpreadsheet;
+	bBusy := TRUE;
+	MR_GetValueSpreadsheet := FALSE;
+	eCameraState := CAMERA_GET_VALUE_SPREADSHEET;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : returning the tool result or job data in the Spreadsheet requested'));	
+	
+ELSIF eCameraState = CAMERA_METHOD_DONE THEN
+	bBusy := FALSE;
+	MR_GetValueSpreadsheet := TRUE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : returning the tool result or job data in the Spreadsheet done'));	
+	
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_ImageTrigger" Id="{b8235d47-9f5c-4a75-aca9-83b99cba81d5}" FolderPath="Requests\">
+      <Declaration><![CDATA[METHOD MR_ImageTrigger : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF eCameraState = CAMERA_IDLE THEN
+	bBusy := TRUE;
+	MR_ImageTrigger := FALSE;
+	eCameraState := CAMERA_IMAGE_TRIGGER;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : image trigger requested'));	
+	
+ELSIF eCameraState = CAMERA_METHOD_DONE THEN
+	bBusy := FALSE;
+	MR_ImageTrigger := TRUE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : image trigger done'));	
+	
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_Init" Id="{f1d87d81-f0e9-4bc6-aec9-016797f76829}" FolderPath="Requests\">
+      <Declaration><![CDATA[METHOD MR_Init : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF eCameraState = CAMERA_UNINITIALIZED THEN
+	bBusy := TRUE;
+	MR_Init := FALSE;
+	eCameraState := CAMERA_INITIALIZING;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : initializing requested'));	
+	
+ELSIF eCameraState >= CAMERA_READY THEN
+	bBusy := FALSE;
+	MR_Init := TRUE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : initializing done'));	
+	
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_LoadFile" Id="{ec2623c3-acf0-452d-a170-fe5b55775f4c}" FolderPath="Requests\">
+      <Declaration><![CDATA[METHOD MR_LoadFile : BOOL
+VAR_INPUT
+	sLoadFileName	: STRING;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF eCameraState = CAMERA_IDLE THEN
+	THIS^.sLoadFileName := sLoadFileName;
+	bBusy := TRUE;
+	MR_LoadFile := FALSE;
+	eCameraState := CAMERA_LOAD_FILE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : loading the specified job from flash memory requested'));	
+
+ELSIF eCameraState = CAMERA_METHOD_DONE THEN
+	bBusy := FALSE;
+	MR_LoadFile := TRUE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' :  loading the specified job from flash memory done'));	
+	
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_PutLive" Id="{ea4c60e8-efd2-4c5f-9244-89787e448593}" FolderPath="Requests\">
+      <Declaration><![CDATA[METHOD MR_PutLive : BOOL
+VAR_INPUT
+	bEnableLiveAcquisition : INT;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF eCameraState = CAMERA_IDLE THEN
+	THIS^.bEnableLiveAcquisition := bEnableLiveAcquisition;
+	bBusy := TRUE;
+	MR_PutLive := FALSE;
+	eCameraState := CAMERA_PUT_LIVE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : turning live acquisition mode on or off requested'));	
+	
+ELSIF eCameraState = CAMERA_METHOD_DONE THEN
+	bBusy := FALSE;
+	MR_PutLive := TRUE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : turning live acquisition mode on or off done'));	
+	
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_PutPortnum" Id="{441444dc-004d-4f8c-863d-a488261f1038}" FolderPath="Requests\">
+      <Declaration><![CDATA[METHOD MR_PutPortnum : BOOL
+VAR_INPUT
+	iPortNumber : INT;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF eCameraState = CAMERA_IDLE THEN
+	THIS^.iPortNumber := iPortNumber;
+	bBusy := TRUE;
+	MR_PutPortnum := FALSE;
+	eCameraState := CAMERA_PUT_PORTNUM;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : specifying the communication port number requested'));	
+	
+ELSIF eCameraState = CAMERA_METHOD_DONE THEN
+	bBusy := FALSE;
+	MR_PutPortnum := TRUE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : specifying the communication port number done'));	
+	
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_PutTimeout" Id="{63f5f8b5-7f93-4a74-9314-6d828a6097df}" FolderPath="Requests\">
+      <Declaration><![CDATA[METHOD MR_PutTimeout : BOOL
+VAR_INPUT
+	iTimeout 	: INT;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF eCameraState = CAMERA_IDLE THEN
+	THIS^.iTimeout := iTimeout;
+	bBusy := TRUE;
+	MR_PutTimeout := FALSE;
+	eCameraState := CAMERA_PUT_TIMEOUT;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : specifying a port connection timeout requested'));	
+	
+ELSIF eCameraState = CAMERA_METHOD_DONE THEN
+	bBusy := FALSE;
+	MR_PutTimeout := TRUE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : specifying a port connection timeout done'));	
+	
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_PutUpdate" Id="{6fb76481-1fe0-41cd-b364-89fcd915fc6d}" FolderPath="Requests\">
+      <Declaration><![CDATA[METHOD MR_PutUpdate : BOOL
+VAR_INPUT
+	iUpdateNumber 	: INT;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF eCameraState = CAMERA_IDLE THEN
+	THIS^.iUpdateNumber := iUpdateNumber;
+	bBusy := TRUE;
+	MR_PutUpdate := FALSE;
+	eCameraState := CAMERA_PUT_UPDATE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : updating the GUI requested'));	
+	
+ELSIF eCameraState = CAMERA_METHOD_DONE THEN
+	bBusy := FALSE;
+	MR_PutUpdate := TRUE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : updating the GUI done'));	
+	
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_PutWatch" Id="{262b3e16-cb1b-468b-8bfd-ae187ffe0498}" FolderPath="Requests\">
+      <Declaration><![CDATA[METHOD MR_PutWatch : BOOL
+VAR_INPUT
+	iColumnPut 		: INT;
+	iRowPut 		: INT;
+	iOutputEnable	: INT;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF eCameraState = CAMERA_IDLE THEN
+	THIS^.iColumnPut := iColumnPut;
+	THIS^.iRowPut := iRowPut;
+	THIS^.iOutputEnable := iOutputEnable;
+	bBusy := TRUE;
+	MR_PutWatch := FALSE;
+	eCameraState := CAMERA_PUT_WATCH;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : returning the value contained in the specified cell each time the cell is updated requested'));	
+	
+ELSIF eCameraState = CAMERA_METHOD_DONE THEN
+	bBusy := FALSE;
+	MR_PutWatch := TRUE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : returning the value contained in the specified cell each time the cell is updated done'));	
+	
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_Reset" Id="{d015314d-2a30-43c8-a256-ecda4d6316ed}" FolderPath="Requests\">
+      <Declaration><![CDATA[METHOD MR_Reset : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF eCameraState >= CAMERA_READY AND eCameraState <> CAMERA_METHOD_DONE THEN
+	bBusy := TRUE;
+	MR_Reset := FALSE;
+	eCameraState := CAMERA_RESET;	
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : camera FB reset requested'));	
+	
+ELSIF eCameraState = CAMERA_METHOD_DONE THEN
+	bBusy := FALSE;
+	MR_Reset := TRUE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : camera FB reset done'));	
+	
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_ResetSystem" Id="{3f87ea11-5c71-4e50-afaa-02940e3eeb14}" FolderPath="Requests\">
+      <Declaration><![CDATA[METHOD MR_ResetSystem : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF eCameraState = CAMERA_IDLE THEN
+	bBusy := TRUE;
+	MR_ResetSystem := FALSE;
+	eCameraState := CAMERA_RESET_SYSTEM;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : resetting the In-Sight sensor requested'));	
+	
+ELSIF eCameraState = CAMERA_METHOD_DONE THEN
+	bBusy := FALSE;
+	MR_ResetSystem := TRUE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : resetting the In-Sight sensor done'));	
+	
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_SetJob" Id="{e96de138-098e-43f6-9d1c-52ab3b9de44e}" FolderPath="Requests\">
+      <Declaration><![CDATA[METHOD MR_SetJob : BOOL
+VAR_INPUT
+	iJobNumber 		: INT;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF eCameraState = CAMERA_IDLE THEN
+	THIS^.iJobNumber := iJobNumber;
+	bBusy := TRUE;
+	MR_SetJob := FALSE;
+	eCameraState := CAMERA_SET_JOB;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : loading a job from one of the job slots in flash memory on the In-Sight sensor requested'));	
+	
+ELSIF eCameraState = CAMERA_METHOD_DONE THEN
+	bBusy := FALSE;
+	MR_SetJob := TRUE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : loading a job from one of the job slots in flash memory on the In-Sight sensor done'));	
+	
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_SetOnline" Id="{d8938c57-6d64-4671-90d2-9788a07d492f}" FolderPath="Requests\">
+      <Declaration><![CDATA[METHOD MR_SetOnline : BOOL
+VAR_INPUT
+	bSetCameraOnline	: INT;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF eCameraState = CAMERA_IDLE THEN
+	THIS^.bSetCameraOnline := bSetCameraOnline;
+	bBusy := TRUE;
+	MR_SetOnline := FALSE;
+	eCameraState := CAMERA_SET_ONLINE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : setting the In-Sight sensor into Online or Offline mode requested'));	
+	
+ELSIF eCameraState = CAMERA_METHOD_DONE THEN
+	bBusy := FALSE;
+	MR_SetOnline := TRUE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : setting the In-Sight sensor into Online or Offline mode done'));	
+	
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_StoreFile" Id="{2885496b-f905-442c-ad2f-d1a4ceadbbfa}" FolderPath="Requests\">
+      <Declaration><![CDATA[METHOD MR_StoreFile : BOOL
+VAR_INPUT
+	sStoreFileName 	: STRING;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF eCameraState = CAMERA_IDLE THEN
+	THIS^.sStoreFileName := sStoreFileName;
+	bBusy := TRUE;
+	MR_StoreFile := FALSE;
+	eCameraState := CAMERA_STORE_FILE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : saving the current job in flash memory on the In-Sight vision system requested'));	
+	
+ELSIF eCameraState = CAMERA_METHOD_DONE THEN
+	bBusy := FALSE;
+	MR_StoreFile := TRUE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : saving the current job in flash memory on the In-Sight vision system done'));	
+	
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_Aborting" Id="{9a7b2925-55e2-42a6-b91d-0ba87903ff4d}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[METHOD PROTECTED MS_Aborting
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[fbTcpClient.MR_Abort();
+
+IF NOT fbTcpClient.Active THEN 
+	IF M_ResetParameters() THEN
+		eCameraState := CAMERA_UNINITIALIZED;
+		
+	END_IF	
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_GetConnections" Id="{74a786cb-ab38-45cc-a6c9-987193d9102e}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[METHOD PROTECTED MS_GetConnections ]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[CASE eCameraMethodState OF
+	CAMERA_METHOD_SEND_COMMAND:
+		MEMSET(ADR(sSendMessage),0,SIZEOF(sSendMessage));
+		sSendMessage := 'Get Connections$R$L';
+		FUN_StringToTcpBufferData(ADR(sSendMessage),ADR(stSendData));
+		
+		IF fbTcpClient.MR_AppendToSendBuffer(stSendData) THEN
+			eCameraMethodState := CAMERA_METHOD_RECEIVE_RESPONSE;
+							
+		END_IF
+
+	CAMERA_METHOD_RECEIVE_RESPONSE:
+		stReciveData := fbTcpClient.NextRecivedMessage;
+		
+		IF stReciveData.iLength > 0 THEN
+			MEMSET(ADR(sReciveMessage),0,SIZEOF(sReciveMessage));
+			FUN_TcpBufferDataToString(ADR(sReciveMessage),ADR(stReciveData));
+			MEMCPY(ADR(sLastStatusCode),ADR(sReciveMessage),2);
+			iLastStatusCode := STRING_TO_INT(sLastStatusCode);
+			
+			IF iLastStatusCode = 1 THEN 
+				eCameraGetConnectionStatus := 1;
+				
+			ELSIF iLastStatusCode = 0 THEN
+				eCameraGetConnectionStatus := 0;
+				
+			ELSIF iLastStatusCode = -1 THEN
+				eCameraGetConnectionStatus := -1;
+				
+			ELSIF iLastStatusCode = -2 THEN
+				eCameraGetConnectionStatus := -2;
+				
+			ELSIF iLastStatusCode = -6 THEN
+				eCameraGetConnectionStatus := -6;
+				
+			END_IF	
+			eCameraMethodState := CAMERA_METHOD_SEND_COMMAND;
+			eCameraState := CAMERA_METHOD_DONE;
+
+		END_IF
+END_CASE]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_GetExpr" Id="{13c6f16a-130e-495d-91d3-bda6e1ce7ca0}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[METHOD PROTECTED MS_GetExpr ]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[CASE eCameraMethodState OF
+	CAMERA_METHOD_SEND_COMMAND:
+		MEMSET(ADR(sSendMessage),0,SIZEOF(sSendMessage));
+		sSendMessage := FUN_MergeStrings5('Get Expr ',sCellIndexExpr ,CONCAT(TO_STRING(iColumnExpr), TO_STRING(iRowExpr)), '$R$L', '');
+		FUN_StringToTcpBufferData(ADR(sSendMessage),ADR(stSendData));
+		
+		IF fbTcpClient.MR_AppendToSendBuffer(stSendData) THEN
+			eCameraMethodState := CAMERA_METHOD_RECEIVE_RESPONSE;
+							
+		END_IF
+
+	CAMERA_METHOD_RECEIVE_RESPONSE:
+		stReciveData := fbTcpClient.NextRecivedMessage;
+		
+		IF stReciveData.iLength > 0 THEN
+			MEMSET(ADR(sReciveMessage),0,SIZEOF(sReciveMessage));
+			FUN_TcpBufferDataToString(ADR(sReciveMessage),ADR(stReciveData));
+			MEMCPY(ADR(sLastStatusCode),ADR(sReciveMessage),2);
+			iLastStatusCode := STRING_TO_INT(sLastStatusCode);
+			
+			IF iLastStatusCode = 1 THEN 
+				eCameraGetExprStatus := 1;
+				
+			ELSIF iLastStatusCode = 0 THEN
+				eCameraGetExprStatus := 0;
+				
+			ELSIF iLastStatusCode = -1 THEN
+				eCameraGetExprStatus := -1;
+				
+			ELSIF iLastStatusCode = -2 THEN
+				eCameraGetExprStatus := -2;
+				
+			END_IF	
+			eCameraMethodState := CAMERA_METHOD_SEND_COMMAND;
+			eCameraState := CAMERA_METHOD_DONE;
+
+		END_IF
+END_CASE]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_GetFile" Id="{dae9b86f-247a-4f25-af8c-97eb75290ce5}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[METHOD PROTECTED MS_GetFile 
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[CASE eCameraMethodState OF
+	CAMERA_METHOD_SEND_COMMAND:
+		MEMSET(ADR(sSendMessage),0,SIZEOF(sSendMessage));
+		sSendMessage := 'GF$R$L';
+		FUN_StringToTcpBufferData(ADR(sSendMessage),ADR(stSendData));
+		
+		IF fbTcpClient.MR_AppendToSendBuffer(stSendData) THEN
+			eCameraMethodState := CAMERA_METHOD_RECEIVE_RESPONSE;
+							
+		END_IF
+
+	CAMERA_METHOD_RECEIVE_RESPONSE:
+		stReciveData := fbTcpClient.NextRecivedMessage;
+		
+		IF stReciveData.iLength > 0 THEN
+			MEMSET(ADR(sReciveMessage),0,SIZEOF(sReciveMessage));
+			FUN_TcpBufferDataToString(ADR(sReciveMessage),ADR(stReciveData));
+			MEMCPY(ADR(sLastStatusCode),ADR(sReciveMessage),2);
+			iLastStatusCode := STRING_TO_INT(sLastStatusCode);
+			
+			IF iLastStatusCode = 1 THEN 
+				eCameraGetFileStatus := 1;
+				
+			ELSIF iLastStatusCode = 0 THEN
+				eCameraGetFileStatus := 0;
+				
+			ELSIF iLastStatusCode = -2 THEN
+				eCameraGetFileStatus := -2;
+				
+			END_IF	
+			eCameraMethodState := CAMERA_METHOD_SEND_COMMAND;
+			eCameraState := CAMERA_METHOD_DONE;
+
+		END_IF
+END_CASE]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_GetFileList" Id="{c51d890d-a85f-49e0-a2a0-7e9179266ba2}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[METHOD PROTECTED MS_GetFileList 
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[CASE eCameraMethodState OF
+	CAMERA_METHOD_SEND_COMMAND:
+		MEMSET(ADR(sSendMessage),0,SIZEOF(sSendMessage));
+		sSendMessage := 'Get Filelist$R$L';
+		FUN_StringToTcpBufferData(ADR(sSendMessage),ADR(stSendData));
+		
+		IF fbTcpClient.MR_AppendToSendBuffer(stSendData) THEN
+			eCameraMethodState := CAMERA_METHOD_RECEIVE_RESPONSE;
+							
+		END_IF
+
+	CAMERA_METHOD_RECEIVE_RESPONSE:
+		stReciveData := fbTcpClient.NextRecivedMessage;
+		
+		IF stReciveData.iLength > 0 THEN
+			MEMSET(ADR(sReciveMessage),0,SIZEOF(sReciveMessage));
+			FUN_TcpBufferDataToString(ADR(sReciveMessage),ADR(stReciveData));
+			MEMCPY(ADR(sLastStatusCode),ADR(sReciveMessage),2);
+			iLastStatusCode := STRING_TO_INT(sLastStatusCode);
+			
+			IF iLastStatusCode = 1 THEN 
+				eCameraGetFileListStatus := 1;
+				
+			ELSIF iLastStatusCode = 0 THEN
+				eCameraGetFileListStatus := 0;
+				
+			ELSIF iLastStatusCode = -1 THEN
+				eCameraGetFileListStatus := -1;
+				
+			ELSIF iLastStatusCode = -2 THEN
+				eCameraGetFileListStatus := -2;
+				
+			END_IF	
+			eCameraMethodState := CAMERA_METHOD_SEND_COMMAND;
+			eCameraState := CAMERA_METHOD_DONE;
+
+		END_IF
+END_CASE]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_GetJob" Id="{a11905c1-2e93-49b0-ae4b-dc4c8e5791b6}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[METHOD PROTECTED MS_GetJob 
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[CASE eCameraMethodState OF
+	CAMERA_METHOD_SEND_COMMAND:
+		MEMSET(ADR(sSendMessage),0,SIZEOF(sSendMessage));
+		sSendMessage := 'GJ$R$L';
+		FUN_StringToTcpBufferData(ADR(sSendMessage),ADR(stSendData));
+		
+		IF fbTcpClient.MR_AppendToSendBuffer(stSendData) THEN
+			eCameraMethodState := CAMERA_METHOD_RECEIVE_RESPONSE;
+							
+		END_IF
+
+	CAMERA_METHOD_RECEIVE_RESPONSE:
+		stReciveData := fbTcpClient.NextRecivedMessage;
+		
+		IF stReciveData.iLength > 0 THEN
+			MEMSET(ADR(sReciveMessage),0,SIZEOF(sReciveMessage));
+			FUN_TcpBufferDataToString(ADR(sReciveMessage),ADR(stReciveData));
+			MEMCPY(ADR(sLastStatusCode),ADR(sReciveMessage),2);
+			iLastStatusCode := STRING_TO_INT(sLastStatusCode);
+			
+			IF iLastStatusCode = 1 THEN 
+				eCameraGetJobStatus := 1;
+				
+			ELSIF iLastStatusCode = 0 THEN
+				eCameraGetJobStatus := 0;
+				
+			ELSIF iLastStatusCode = -2 THEN
+				eCameraGetJobStatus := -2;
+				
+			END_IF	
+			eCameraMethodState := CAMERA_METHOD_SEND_COMMAND;
+			eCameraState := CAMERA_METHOD_DONE;
+
+		END_IF
+END_CASE]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_GetOnline" Id="{dfffe265-715e-428a-9b26-554f807e9945}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[METHOD PROTECTED MS_GetOnline 
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[CASE eCameraMethodState OF
+	CAMERA_METHOD_SEND_COMMAND:
+		MEMSET(ADR(sSendMessage),0,SIZEOF(sSendMessage));
+		sSendMessage := 'GO$R$L';
+		FUN_StringToTcpBufferData(ADR(sSendMessage),ADR(stSendData));
+		
+		IF fbTcpClient.MR_AppendToSendBuffer(stSendData) THEN
+			eCameraMethodState := CAMERA_METHOD_RECEIVE_RESPONSE;
+							
+		END_IF
+
+	CAMERA_METHOD_RECEIVE_RESPONSE:
+		stReciveData := fbTcpClient.NextRecivedMessage;
+		
+		IF stReciveData.iLength > 0 THEN
+			MEMSET(ADR(sReciveMessage),0,SIZEOF(sReciveMessage));
+			FUN_TcpBufferDataToString(ADR(sReciveMessage),ADR(stReciveData));
+			MEMCPY(ADR(sLastStatusCode),ADR(sReciveMessage),2);
+			iLastStatusCode := STRING_TO_INT(sLastStatusCode);
+			
+			IF iLastStatusCode = 0 THEN 
+				eCameraGetOnlineStatus := 0;
+				
+			ELSIF iLastStatusCode = 1 THEN
+				eCameraGetOnlineStatus := 1;
+				
+			END_IF	
+			eCameraMethodState := CAMERA_METHOD_SEND_COMMAND;
+			eCameraState := CAMERA_METHOD_DONE;
+
+		END_IF
+END_CASE]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_GetPosition" Id="{69fa4b5d-a252-4229-abf5-7991928b7739}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[METHOD PROTECTED MS_GetPosition ]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[CASE eCameraGetPositionState OF
+	CAMERA_GET_POSITION_SEND_COMMAND_X:
+		MEMSET(ADR(sSendMessage),0,SIZEOF(sSendMessage));
+		sSendMessage := FUN_MergeStrings3('GV', sPositionXVariable,'$R$L');
+		FUN_StringToTcpBufferData(ADR(sSendMessage),ADR(stSendData));
+		
+		IF fbTcpClient.MR_AppendToSendBuffer(stSendData) THEN
+			eCameraGetPositionState := CAMERA_GET_POSITION_RECEIVE_RESPONSE_X;
+							
+		END_IF
+
+	CAMERA_GET_POSITION_RECEIVE_RESPONSE_X:
+		stReciveData := fbTcpClient.NextRecivedMessage;
+		
+		IF stReciveData.iLength > 0 THEN
+			MEMSET(ADR(sReciveMessage),0,SIZEOF(sReciveMessage));
+			FUN_TcpBufferDataToString(ADR(sReciveMessage),ADR(stReciveData));
+			MEMCPY(ADR(sLastStatusCode),ADR(sReciveMessage),2);
+			iLastStatusCode := STRING_TO_INT(sLastStatusCode);
+			
+			IF iLastStatusCode = 1 THEN 
+				eCameraGetPositionStatus := 1;
+				sPositionString := TO_STRING(sReciveMessage);
+				sPositionStringDel := DELETE(sPositionString,3,1);
+				lrPositionX := STRING_TO_LREAL(sPositionStringDel);
+				
+			ELSIF iLastStatusCode = 0 THEN
+				eCameraGetPositionStatus := 0;
+				
+			ELSIF iLastStatusCode = -1 THEN
+				eCameraGetPositionStatus := -1;
+				
+			ELSIF iLastStatusCode = -2 THEN
+				eCameraGetPositionStatus := -2;
+				
+			END_IF	
+			eCameraGetPositionState := CAMERA_GET_POSITION_SEND_COMMAND_Y;
+
+		END_IF
+	
+	CAMERA_GET_POSITION_SEND_COMMAND_Y:
+		MEMSET(ADR(sSendMessage),0,SIZEOF(sSendMessage));
+		sSendMessage := FUN_MergeStrings3('GV', sPositionYVariable,'$R$L');
+		FUN_StringToTcpBufferData(ADR(sSendMessage),ADR(stSendData));
+		
+		IF fbTcpClient.MR_AppendToSendBuffer(stSendData) THEN
+			eCameraGetPositionState := CAMERA_GET_POSITION_RECEIVE_RESPONSE_Y;
+							
+		END_IF
+
+	CAMERA_GET_POSITION_RECEIVE_RESPONSE_Y:
+		stReciveData := fbTcpClient.NextRecivedMessage;
+		
+		IF stReciveData.iLength > 0 THEN
+			MEMSET(ADR(sReciveMessage),0,SIZEOF(sReciveMessage));
+			FUN_TcpBufferDataToString(ADR(sReciveMessage),ADR(stReciveData));
+			MEMCPY(ADR(sLastStatusCode),ADR(sReciveMessage),2);
+			iLastStatusCode := STRING_TO_INT(sLastStatusCode);
+			
+			IF iLastStatusCode = 1 THEN 
+				eCameraGetPositionStatus := 1;
+				sPositionString := TO_STRING(sReciveMessage);
+				sPositionStringDel := DELETE(sPositionString,3,1);
+				lrPositionY := STRING_TO_LREAL(sPositionStringDel);
+				
+			ELSIF iLastStatusCode = 0 THEN
+				eCameraGetPositionStatus := 0;
+				
+			ELSIF iLastStatusCode = -1 THEN
+				eCameraGetPositionStatus := -1;
+				
+			ELSIF iLastStatusCode = -2 THEN
+				eCameraGetPositionStatus := -2;
+				
+			END_IF	
+			eCameraGetPositionState := CAMERA_GET_POSITION_SEND_COMMAND_ROTATION;
+			
+		END_IF
+		
+		
+	CAMERA_GET_POSITION_SEND_COMMAND_ROTATION:
+		MEMSET(ADR(sSendMessage),0,SIZEOF(sSendMessage));
+		sSendMessage := FUN_MergeStrings3('GV', sRotationVariable,'$R$L');
+		FUN_StringToTcpBufferData(ADR(sSendMessage),ADR(stSendData));
+		
+		IF fbTcpClient.MR_AppendToSendBuffer(stSendData) THEN
+			eCameraGetPositionState := CAMERA_GET_POSITION_RECEIVE_RESPONSE_ROTATION;
+							
+		END_IF
+
+	CAMERA_GET_POSITION_RECEIVE_RESPONSE_ROTATION:
+		stReciveData := fbTcpClient.NextRecivedMessage;
+		
+		IF stReciveData.iLength > 0 THEN
+			MEMSET(ADR(sReciveMessage),0,SIZEOF(sReciveMessage));
+			FUN_TcpBufferDataToString(ADR(sReciveMessage),ADR(stReciveData));
+			MEMCPY(ADR(sLastStatusCode),ADR(sReciveMessage),2);
+			iLastStatusCode := STRING_TO_INT(sLastStatusCode);
+			
+			IF iLastStatusCode = 1 THEN 
+				eCameraGetPositionStatus := 1;
+				sPositionString := TO_STRING(sReciveMessage);
+				sPositionStringDel := DELETE(sPositionString,3,1);
+				lrRotation := STRING_TO_LREAL(sPositionStringDel);
+				
+			ELSIF iLastStatusCode = 0 THEN
+				eCameraGetPositionStatus := 0;
+				
+			ELSIF iLastStatusCode = -1 THEN
+				eCameraGetPositionStatus := -1;
+				
+			ELSIF iLastStatusCode = -2 THEN
+				eCameraGetPositionStatus := -2;
+				
+			END_IF	
+			eCameraGetPositionState := CAMERA_GET_POSITION_GETTING_DONE;
+
+		END_IF
+		
+	CAMERA_GET_POSITION_GETTING_DONE:
+		IF lrPositionX = 0.0 AND lrPositionY = 0.0 THEN
+			eCameraGetPositionStatus := -3;
+			
+		END_IF
+		eCameraGetPositionState := CAMERA_GET_POSITION_SEND_COMMAND_X;
+		eCameraState := CAMERA_METHOD_DONE;
+		
+END_CASE]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_GetValueEasyBuilder" Id="{8b0a5196-09ac-4f2e-b390-d0c8421fc080}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[METHOD PROTECTED MS_GetValueEasyBuilder 
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[CASE eCameraMethodState OF
+	CAMERA_METHOD_SEND_COMMAND:
+		MEMSET(ADR(sSendMessage),0,SIZEOF(sSendMessage));
+		sSendMessage := FUN_MergeStrings3('GV', sEasyBuilderValueName,'$R$L');
+		FUN_StringToTcpBufferData(ADR(sSendMessage),ADR(stSendData));
+		
+		IF fbTcpClient.MR_AppendToSendBuffer(stSendData) THEN
+			eCameraMethodState := CAMERA_METHOD_RECEIVE_RESPONSE;
+							
+		END_IF
+
+	CAMERA_METHOD_RECEIVE_RESPONSE:
+		stReciveData := fbTcpClient.NextRecivedMessage;
+		
+		IF stReciveData.iLength > 0 THEN
+			MEMSET(ADR(sReciveMessage),0,SIZEOF(sReciveMessage));
+			FUN_TcpBufferDataToString(ADR(sReciveMessage),ADR(stReciveData));
+			MEMCPY(ADR(sLastStatusCode),ADR(sReciveMessage),2);
+			iLastStatusCode := STRING_TO_INT(sLastStatusCode);
+			
+			IF iLastStatusCode = 1 THEN 
+				eCameraGetValueEasyBuilderStatus := 1;
+				
+			ELSIF iLastStatusCode = 0 THEN
+				eCameraGetValueEasyBuilderStatus := 0;
+				
+			ELSIF iLastStatusCode = -1 THEN
+				eCameraGetValueEasyBuilderStatus := -1;
+				
+			ELSIF iLastStatusCode = -2 THEN
+				eCameraGetValueEasyBuilderStatus := -2;
+				
+			END_IF	
+			eCameraMethodState := CAMERA_METHOD_SEND_COMMAND;
+			eCameraState := CAMERA_METHOD_DONE;
+
+		END_IF
+END_CASE]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_GetValues" Id="{4aeefb5b-b65b-4cb3-8095-d56cc5b5373b}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[METHOD PROTECTED MS_GetValues ]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[CASE eCameraGetValuesState OF
+	CAMERA_GET_VALUES_SEND_COMMAND_VALUE_1:
+		MEMSET(ADR(sSendMessage),0,SIZEOF(sSendMessage));
+		sSendMessage := FUN_MergeStrings3('GV', sVariable1,'$R$L');
+		FUN_StringToTcpBufferData(ADR(sSendMessage),ADR(stSendData));
+		
+		IF fbTcpClient.MR_AppendToSendBuffer(stSendData) THEN
+			eCameraGetValuesState := CAMERA_GET_VALUES_RECEIVE_RESPONSE_VALUE_1;
+							
+		END_IF
+
+	CAMERA_GET_VALUES_RECEIVE_RESPONSE_VALUE_1:
+		stReciveData := fbTcpClient.NextRecivedMessage;
+		
+		IF stReciveData.iLength > 0 THEN
+			MEMSET(ADR(sReciveMessage),0,SIZEOF(sReciveMessage));
+			FUN_TcpBufferDataToString(ADR(sReciveMessage),ADR(stReciveData));
+			MEMCPY(ADR(sLastStatusCode),ADR(sReciveMessage),2);
+			iLastStatusCode := STRING_TO_INT(sLastStatusCode);
+			
+			IF iLastStatusCode = 1 THEN 
+				eCameraGetValuesStatus := 1;
+				sPositionString := TO_STRING(sReciveMessage);
+				sPositionStringDel := DELETE(sPositionString,3,1);
+				lrValue1 := STRING_TO_LREAL(sPositionStringDel);
+				
+			ELSIF iLastStatusCode = 0 THEN
+				eCameraGetValuesStatus := 0;
+				
+			ELSIF iLastStatusCode = -1 THEN
+				eCameraGetValuesStatus := -1;
+				
+			ELSIF iLastStatusCode = -2 THEN
+				eCameraGetValuesStatus := -2;
+				
+			END_IF	
+			eCameraGetValuesState := CAMERA_GET_VALUES_SEND_COMMAND_VALUE_2;
+
+		END_IF
+	
+	CAMERA_GET_VALUES_SEND_COMMAND_VALUE_2:
+		MEMSET(ADR(sSendMessage),0,SIZEOF(sSendMessage));
+		sSendMessage := FUN_MergeStrings3('GV', sVariable2,'$R$L');
+		FUN_StringToTcpBufferData(ADR(sSendMessage),ADR(stSendData));
+		
+		IF fbTcpClient.MR_AppendToSendBuffer(stSendData) THEN
+			eCameraGetValuesState := CAMERA_GET_VALUES_RECEIVE_RESPONSE_VALUE_2;
+							
+		END_IF
+
+	CAMERA_GET_VALUES_RECEIVE_RESPONSE_VALUE_2:
+		stReciveData := fbTcpClient.NextRecivedMessage;
+		
+		IF stReciveData.iLength > 0 THEN
+			MEMSET(ADR(sReciveMessage),0,SIZEOF(sReciveMessage));
+			FUN_TcpBufferDataToString(ADR(sReciveMessage),ADR(stReciveData));
+			MEMCPY(ADR(sLastStatusCode),ADR(sReciveMessage),2);
+			iLastStatusCode := STRING_TO_INT(sLastStatusCode);
+			
+			IF iLastStatusCode = 1 THEN 
+				eCameraGetValuesStatus := 1;
+				sPositionString := TO_STRING(sReciveMessage);
+				sPositionStringDel := DELETE(sPositionString,3,1);
+				lrValue2 := STRING_TO_LREAL(sPositionStringDel);
+				
+			ELSIF iLastStatusCode = 0 THEN
+				eCameraGetValuesStatus := 0;
+				
+			ELSIF iLastStatusCode = -1 THEN
+				eCameraGetValuesStatus := -1;
+				
+			ELSIF iLastStatusCode = -2 THEN
+				eCameraGetValuesStatus := -2;
+				
+			END_IF	
+			eCameraGetValuesState := CAMERA_GET_VALUES_SEND_COMMAND_VALUE_3;
+			
+		END_IF
+		
+		
+	CAMERA_GET_VALUES_SEND_COMMAND_VALUE_3:
+		MEMSET(ADR(sSendMessage),0,SIZEOF(sSendMessage));
+		sSendMessage := FUN_MergeStrings3('GV', sVariable3,'$R$L');
+		FUN_StringToTcpBufferData(ADR(sSendMessage),ADR(stSendData));
+		
+		IF fbTcpClient.MR_AppendToSendBuffer(stSendData) THEN
+			eCameraGetValuesState := CAMERA_GET_VALUES_RECEIVE_RESPONSE_VALUE_3;
+
+		END_IF
+
+	CAMERA_GET_VALUES_RECEIVE_RESPONSE_VALUE_3:
+		stReciveData := fbTcpClient.NextRecivedMessage;
+		
+		IF stReciveData.iLength > 0 THEN
+			MEMSET(ADR(sReciveMessage),0,SIZEOF(sReciveMessage));
+			FUN_TcpBufferDataToString(ADR(sReciveMessage),ADR(stReciveData));
+			MEMCPY(ADR(sLastStatusCode),ADR(sReciveMessage),2);
+			iLastStatusCode := STRING_TO_INT(sLastStatusCode);
+			
+			IF iLastStatusCode = 1 THEN 
+				eCameraGetValuesStatus := 1;
+				sPositionString := TO_STRING(sReciveMessage);
+				sPositionStringDel := DELETE(sPositionString,3,1);
+				lrValue3 := STRING_TO_LREAL(sPositionStringDel);
+				
+			ELSIF iLastStatusCode = 0 THEN
+				eCameraGetValuesStatus := 0;
+				
+			ELSIF iLastStatusCode = -1 THEN
+				eCameraGetValuesStatus := -1;
+				
+			ELSIF iLastStatusCode = -2 THEN
+				eCameraGetValuesStatus := -2;
+				
+			END_IF	
+			eCameraGetValuesState := CAMERA_GET_VALUES_SEND_COMMAND_VALUE_4;
+
+		END_IF
+
+
+	CAMERA_GET_VALUES_SEND_COMMAND_VALUE_4:
+		MEMSET(ADR(sSendMessage),0,SIZEOF(sSendMessage));
+		sSendMessage := FUN_MergeStrings3('GV', sVariable4,'$R$L');
+		FUN_StringToTcpBufferData(ADR(sSendMessage),ADR(stSendData));
+		
+		IF fbTcpClient.MR_AppendToSendBuffer(stSendData) THEN
+			eCameraGetValuesState := CAMERA_GET_VALUES_RECEIVE_RESPONSE_VALUE_4;
+							
+		END_IF
+
+	CAMERA_GET_VALUES_RECEIVE_RESPONSE_VALUE_4:
+		stReciveData := fbTcpClient.NextRecivedMessage;
+		
+		IF stReciveData.iLength > 0 THEN
+			MEMSET(ADR(sReciveMessage),0,SIZEOF(sReciveMessage));
+			FUN_TcpBufferDataToString(ADR(sReciveMessage),ADR(stReciveData));
+			MEMCPY(ADR(sLastStatusCode),ADR(sReciveMessage),2);
+			iLastStatusCode := STRING_TO_INT(sLastStatusCode);
+			
+			IF iLastStatusCode = 1 THEN 
+				eCameraGetValuesStatus := 1;
+				sPositionString := TO_STRING(sReciveMessage);
+				sPositionStringDel := DELETE(sPositionString,3,1);
+				lrValue4 := STRING_TO_LREAL(sPositionStringDel);
+				
+			ELSIF iLastStatusCode = 0 THEN
+				eCameraGetValuesStatus := 0;
+				
+			ELSIF iLastStatusCode = -1 THEN
+				eCameraGetValuesStatus := -1;
+				
+			ELSIF iLastStatusCode = -2 THEN
+				eCameraGetValuesStatus := -2;
+				
+			END_IF	
+			eCameraGetValuesState := CAMERA_GET_VALUES_GETTING_DONE;
+
+		END_IF
+		
+	CAMERA_GET_VALUES_GETTING_DONE:
+		
+		IF lrValue1 = 0.0 OR lrValue2 = 0.0 OR lrValue3 = 0.0 OR lrValue4 = 0.0 THEN
+			eCameraGetValuesStatus := -3;
+			
+		END_IF
+		eCameraGetValuesState := CAMERA_GET_VALUES_SEND_COMMAND_VALUE_1;
+		eCameraState := CAMERA_METHOD_DONE;
+		
+END_CASE]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_GetValueSpreadsheet" Id="{ad33c075-6bec-4b5b-9706-bfb0fa9d2951}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[METHOD PROTECTED MS_GetValueSpreadsheet 
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[CASE eCameraMethodState OF
+	CAMERA_METHOD_SEND_COMMAND:
+		MEMSET(ADR(sSendMessage),0,SIZEOF(sSendMessage));
+		sSendMessage := FUN_MergeStrings5('GV', TO_STRING(iColumnValueSpreadsheet), TO_STRING(iRowValueSpreadsheet), '$R$L', '');
+		FUN_StringToTcpBufferData(ADR(sSendMessage),ADR(stSendData));
+		
+		IF fbTcpClient.MR_AppendToSendBuffer(stSendData) THEN
+			eCameraMethodState := CAMERA_METHOD_RECEIVE_RESPONSE;
+							
+		END_IF
+
+	CAMERA_METHOD_RECEIVE_RESPONSE:
+		stReciveData := fbTcpClient.NextRecivedMessage;
+		
+		IF stReciveData.iLength > 0 THEN
+			MEMSET(ADR(sReciveMessage),0,SIZEOF(sReciveMessage));
+			FUN_TcpBufferDataToString(ADR(sReciveMessage),ADR(stReciveData));
+			MEMCPY(ADR(sLastStatusCode),ADR(sReciveMessage),2);
+			iLastStatusCode := STRING_TO_INT(sLastStatusCode);
+			
+			IF iLastStatusCode = 1 THEN 
+				eCameraGetValueSpreadsheetStatus := 1;
+				
+			ELSIF iLastStatusCode = 0 THEN
+				eCameraGetValueSpreadsheetStatus := 0;
+				
+			ELSIF iLastStatusCode = -1 THEN
+				eCameraGetValueSpreadsheetStatus := -1;
+				
+			ELSIF iLastStatusCode = -2 THEN
+				eCameraGetValueSpreadsheetStatus := -2;
+				
+			END_IF	
+			eCameraMethodState := CAMERA_METHOD_SEND_COMMAND;
+			eCameraState := CAMERA_METHOD_DONE;
+
+		END_IF
+END_CASE]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_Idle" Id="{f8679c41-465a-4146-aafd-07d62484a0a5}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[METHOD PROTECTED MS_Idle ]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_ImageTrigger" Id="{5019525a-8b9a-4e06-8f37-4b48816cba07}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[METHOD PROTECTED MS_ImageTrigger ]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[CASE eCameraMethodState OF
+	CAMERA_METHOD_SEND_COMMAND:
+		MEMSET(ADR(sSendMessage),0,SIZEOF(sSendMessage));
+		sSendMessage := 'SW8$R$L';
+		FUN_StringToTcpBufferData(ADR(sSendMessage),ADR(stSendData));
+		
+		IF fbTcpClient.MR_AppendToSendBuffer(stSendData) THEN
+			eCameraMethodState := CAMERA_METHOD_RECEIVE_RESPONSE;
+							
+		END_IF
+
+	CAMERA_METHOD_RECEIVE_RESPONSE:
+		stReciveData := fbTcpClient.NextRecivedMessage;
+		
+		IF stReciveData.iLength > 0 THEN
+			MEMSET(ADR(sReciveMessage),0,SIZEOF(sReciveMessage));
+			FUN_TcpBufferDataToString(ADR(sReciveMessage),ADR(stReciveData));
+			MEMCPY(ADR(sLastStatusCode),ADR(sReciveMessage),2);
+			iLastStatusCode := STRING_TO_INT(sLastStatusCode);
+			
+			IF iLastStatusCode = 1 THEN 
+				eCameraImageTriggerStatus := 1;
+				
+			ELSIF iLastStatusCode = 0 THEN
+				eCameraImageTriggerStatus := 0;
+				
+			ELSIF iLastStatusCode = -1 THEN
+				eCameraImageTriggerStatus := -1;
+				
+			ELSIF iLastStatusCode = -2 THEN
+				eCameraImageTriggerStatus := -2;
+				
+			ELSIF iLastStatusCode = -6 THEN
+				eCameraImageTriggerStatus := -6;
+				
+			END_IF	
+			eCameraMethodState := CAMERA_METHOD_SEND_COMMAND;			
+			eCameraState := CAMERA_METHOD_DONE;
+
+		END_IF
+END_CASE]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_Initializing" Id="{3958a9bc-342d-488b-94b8-fc85b2d76ebb}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[METHOD PROTECTED MS_Initializing //C:\TwinCAT\log\filelog.txt
+VAR_INST
+//	tClearBuffers		:	TON;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[CASE eCameraInitState OF
+	CAMERA_INIT_CONNECTION:
+		fbTcpClient.MR_Init();
+		
+		IF fbTcpClient.Active THEN
+			eCameraInitState := CAMERA_INIT_CLEAR_BUFFER;	
+			
+		ELSIF fbTcpClient.Error THEN
+			bError := TRUE;
+			iErrorID := fbTcpClient.ErrorID;
+			
+		END_IF
+		
+	CAMERA_INIT_CLEAR_BUFFER:
+		fbTcpClient.MR_ClearAllBuffers();
+		eCameraInitState := CAMERA_INIT_WAIT_FOR_USERNAME;
+		
+		IF fbTcpClient.Error THEN
+			bError := TRUE;
+			iErrorID := fbTcpClient.ErrorID;
+			
+		END_IF
+		
+	CAMERA_INIT_WAIT_FOR_USERNAME: 
+		stReciveData := fbTcpClient.NextRecivedMessage;
+		
+		IF stReciveData.iLength > 0 THEN
+			MEMSET(ADR(sReciveMessage),0,SIZEOF(sReciveMessage));
+			FUN_TcpBufferDataToString(ADR(sReciveMessage),ADR(stReciveData));		
+	
+			IF RIGHT(sReciveMessage, 6) = 'User: ' THEN	
+				eCameraInitState := CAMERA_INIT_WRITE_USER;
+			
+			END_IF
+		ELSIF fbTcpClient.Error THEN
+			bError := TRUE;
+			iErrorID := fbTcpClient.ErrorID;
+			
+		END_IF
+			
+	CAMERA_INIT_WRITE_USER:
+		MEMSET(ADR(sSendMessage),0,SIZEOF(sSendMessage));
+		sSendMessage := 'admin$R$L';
+		FUN_StringToTcpBufferData(ADR(sSendMessage),ADR(stSendData));
+		stSendData.iLength := INT_TO_UDINT(LEN(sSendMessage));
+		
+		IF fbTcpClient.MR_AppendToSendBuffer(stSendData) THEN
+			eCameraInitState := CAMERA_INIT_WAIT_FOR_PASSWORD;
+		
+		ELSIF fbTcpClient.Error THEN
+			bError := TRUE;
+			iErrorID := fbTcpClient.ErrorID;
+			
+		END_IF
+		
+	CAMERA_INIT_WAIT_FOR_PASSWORD:
+		stReciveData := fbTcpClient.NextRecivedMessage;
+		
+		IF stReciveData.iLength > 0 THEN
+			MEMSET(ADR(sReciveMessage),0,SIZEOF(sReciveMessage));
+			FUN_TcpBufferDataToString(ADR(sReciveMessage),ADR(stReciveData));
+			
+			IF sReciveMessage = 'Password: ' THEN		
+				eCameraInitState := CAMERA_INIT_WRITE_PASSWORD;
+			
+			END_IF
+		ELSIF fbTcpClient.Error THEN
+			bError := TRUE;
+			iErrorID := fbTcpClient.ErrorID;
+			
+		END_IF
+
+	CAMERA_INIT_WRITE_PASSWORD:
+		MEMSET(ADR(sSendMessage),0,SIZEOF(sSendMessage));
+		sSendMessage := '$R$L';
+		FUN_StringToTcpBufferData(ADR(sSendMessage),ADR(stSendData));
+		stSendData.iLength := INT_TO_UDINT(LEN(sSendMessage));
+		
+		IF fbTcpClient.MR_AppendToSendBuffer(stSendData) THEN
+			eCameraInitState := CAMERA_INIT_WAIT_FOR_CONFIRMATION;
+
+		ELSIF fbTcpClient.Error THEN
+			bError := TRUE;
+			iErrorID := fbTcpClient.ErrorID;
+			
+		END_IF
+		
+	CAMERA_INIT_WAIT_FOR_CONFIRMATION:
+		stReciveData := fbTcpClient.NextRecivedMessage;
+		
+		IF stReciveData.iLength > 0 THEN
+			MEMSET(ADR(sReciveMessage),0,SIZEOF(sReciveMessage));
+			FUN_TcpBufferDataToString(ADR(sReciveMessage),ADR(stReciveData));
+	
+			IF sReciveMessage = 'User Logged In$R$L' THEN		
+				eCameraInitState := CAMERA_INIT_DONE;
+			
+			END_IF
+		ELSIF fbTcpClient.Error THEN
+			bError := TRUE;
+			iErrorID := fbTcpClient.ErrorID;
+			
+		END_IF
+		
+	CAMERA_INIT_DONE:
+		eCameraInitState := CAMERA_INIT_CONNECTION;
+		eCameraState := CAMERA_READY;
+			
+END_CASE]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_LoadFile" Id="{13aaaab4-6490-4ba8-8780-259e2f7ed5f9}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[METHOD PROTECTED MS_LoadFile 
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[CASE eCameraMethodState OF
+	CAMERA_METHOD_SEND_COMMAND:
+		MEMSET(ADR(sSendMessage),0,SIZEOF(sSendMessage));
+		sSendMessage := FUN_MergeStrings3('LF', sLoadFileName,'$R$L');
+		FUN_StringToTcpBufferData(ADR(sSendMessage),ADR(stSendData));
+		
+		IF fbTcpClient.MR_AppendToSendBuffer(stSendData) THEN
+			eCameraMethodState := CAMERA_METHOD_RECEIVE_RESPONSE;
+							
+		END_IF
+
+	CAMERA_METHOD_RECEIVE_RESPONSE:
+		stReciveData := fbTcpClient.NextRecivedMessage;
+		
+		IF stReciveData.iLength > 0 THEN
+			MEMSET(ADR(sReciveMessage),0,SIZEOF(sReciveMessage));
+			FUN_TcpBufferDataToString(ADR(sReciveMessage),ADR(stReciveData));
+			MEMCPY(ADR(sLastStatusCode),ADR(sReciveMessage),2);
+			iLastStatusCode := STRING_TO_INT(sLastStatusCode);
+			
+			IF iLastStatusCode = 1 THEN 
+				eCameraLoadFileStatus := 1;
+				
+			ELSIF iLastStatusCode = 0 THEN
+				eCameraLoadFileStatus := 0;
+				
+			ELSIF iLastStatusCode = -1 THEN
+				eCameraLoadFileStatus := -1;
+				
+			ELSIF iLastStatusCode = -2 THEN
+				eCameraLoadFileStatus := -2;
+				
+			ELSIF iLastStatusCode = -4 THEN
+				eCameraLoadFileStatus := -4;
+				
+			ELSIF iLastStatusCode = -6 THEN
+				eCameraLoadFileStatus := -6;
+				
+			END_IF	
+			eCameraMethodState := CAMERA_METHOD_SEND_COMMAND;
+			eCameraState := CAMERA_METHOD_DONE;
+
+		END_IF
+END_CASE]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_MethodDone" Id="{6e6e5bc3-7b22-4b76-af08-bc75505b3f74}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[METHOD PROTECTED MS_MethodDone
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF NOT bBusy THEN
+	eCameraState := CAMERA_IDLE;
+	
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_PutLive" Id="{328a0edc-33ef-4533-9691-c3f5fef8cec2}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[METHOD PROTECTED MS_PutLive 
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[CASE eCameraMethodState OF
+	CAMERA_METHOD_SEND_COMMAND:
+		MEMSET(ADR(sSendMessage),0,SIZEOF(sSendMessage));
+		sSendMessage := FUN_MergeStrings3('Put live ', TO_STRING(bEnableLiveAcquisition), '$R$L');
+		FUN_StringToTcpBufferData(ADR(sSendMessage),ADR(stSendData));
+		
+		IF fbTcpClient.MR_AppendToSendBuffer(stSendData) THEN
+			eCameraMethodState := CAMERA_METHOD_RECEIVE_RESPONSE;
+							
+		END_IF
+
+	CAMERA_METHOD_RECEIVE_RESPONSE:
+		stReciveData := fbTcpClient.NextRecivedMessage;
+		
+		IF stReciveData.iLength > 0 THEN
+			MEMSET(ADR(sReciveMessage),0,SIZEOF(sReciveMessage));
+			FUN_TcpBufferDataToString(ADR(sReciveMessage),ADR(stReciveData));
+			MEMCPY(ADR(sLastStatusCode),ADR(sReciveMessage),2);
+			iLastStatusCode := STRING_TO_INT(sLastStatusCode);
+			
+			IF iLastStatusCode = 1 THEN 
+				eCameraPutLiveStatus := 1;
+				
+			ELSIF iLastStatusCode = 0 THEN
+				eCameraPutLiveStatus := 0;
+				
+			ELSIF iLastStatusCode = -1 THEN
+				eCameraPutLiveStatus := -1;
+				
+			ELSIF iLastStatusCode = -2 THEN
+				eCameraPutLiveStatus := -2;
+				
+			ELSIF iLastStatusCode = -6 THEN
+				eCameraPutLiveStatus := -6;
+				
+			END_IF	
+			eCameraMethodState := CAMERA_METHOD_SEND_COMMAND;
+			eCameraState := CAMERA_METHOD_DONE;
+
+		END_IF
+END_CASE]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_PutPortnum" Id="{74479a62-8950-4703-8e74-095e297637ef}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[METHOD PROTECTED MS_PutPortnum 
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[CASE eCameraMethodState OF
+	CAMERA_METHOD_SEND_COMMAND:
+		MEMSET(ADR(sSendMessage),0,SIZEOF(sSendMessage));
+		sSendMessage := FUN_MergeStrings3('Put Portnum ', TO_STRING(iPortNumber), '$R$L');
+		FUN_StringToTcpBufferData(ADR(sSendMessage),ADR(stSendData));
+		
+		IF fbTcpClient.MR_AppendToSendBuffer(stSendData) THEN
+			eCameraMethodState := CAMERA_METHOD_RECEIVE_RESPONSE;
+							
+		END_IF
+
+	CAMERA_METHOD_RECEIVE_RESPONSE:
+		stReciveData := fbTcpClient.NextRecivedMessage;
+		
+		IF stReciveData.iLength > 0 THEN
+			MEMSET(ADR(sReciveMessage),0,SIZEOF(sReciveMessage));
+			FUN_TcpBufferDataToString(ADR(sReciveMessage),ADR(stReciveData));
+			MEMCPY(ADR(sLastStatusCode),ADR(sReciveMessage),2);
+			iLastStatusCode := STRING_TO_INT(sLastStatusCode);
+			
+			IF iLastStatusCode = 1 THEN 
+				eCameraPutPortnumStatus := 1;
+				
+			ELSIF iLastStatusCode = 0 THEN
+				eCameraPutPortnumStatus := 0;
+				
+			ELSIF iLastStatusCode = -1 THEN
+				eCameraPutPortnumStatus := -1;
+				
+			ELSIF iLastStatusCode = -2 THEN
+				eCameraPutPortnumStatus := -2;
+				
+			ELSIF iLastStatusCode = -6 THEN
+				eCameraPutPortnumStatus := -6;
+				
+			END_IF	
+			eCameraMethodState := CAMERA_METHOD_SEND_COMMAND;
+			eCameraState := CAMERA_METHOD_DONE;
+
+		END_IF
+END_CASE]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_PutTimeout" Id="{678cff97-a861-4164-980f-29edad4d3444}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[METHOD PROTECTED MS_PutTimeout 
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[CASE eCameraMethodState OF
+	CAMERA_METHOD_SEND_COMMAND:
+		MEMSET(ADR(sSendMessage),0,SIZEOF(sSendMessage));
+		sSendMessage := FUN_MergeStrings3('Put Timeout ', TO_STRING(iTimeout), '$R$L');
+		FUN_StringToTcpBufferData(ADR(sSendMessage),ADR(stSendData));
+		
+		IF fbTcpClient.MR_AppendToSendBuffer(stSendData) THEN
+			eCameraMethodState := CAMERA_METHOD_RECEIVE_RESPONSE;
+							
+		END_IF
+
+	CAMERA_METHOD_RECEIVE_RESPONSE:
+		stReciveData := fbTcpClient.NextRecivedMessage;
+		
+		IF stReciveData.iLength > 0 THEN
+			MEMSET(ADR(sReciveMessage),0,SIZEOF(sReciveMessage));
+			FUN_TcpBufferDataToString(ADR(sReciveMessage),ADR(stReciveData));
+			MEMCPY(ADR(sLastStatusCode),ADR(sReciveMessage),2);
+			iLastStatusCode := STRING_TO_INT(sLastStatusCode);
+			
+			IF iLastStatusCode = 1 THEN 
+				eCameraPutTimeoutStatus := 1;
+				
+			ELSIF iLastStatusCode = 0 THEN
+				eCameraPutTimeoutStatus := 0;
+				
+			ELSIF iLastStatusCode = -1 THEN
+				eCameraPutTimeoutStatus := -1;
+				
+			ELSIF iLastStatusCode = -6 THEN
+				eCameraPutTimeoutStatus := -6;
+				
+			END_IF	
+			eCameraMethodState := CAMERA_METHOD_SEND_COMMAND;
+			eCameraState := CAMERA_METHOD_DONE;
+			
+		END_IF
+END_CASE]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_PutUpdate" Id="{54fa910a-6f45-4ae5-8dda-a31a07283a18}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[METHOD PROTECTED MS_PutUpdate 
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[CASE eCameraMethodState OF
+	CAMERA_METHOD_SEND_COMMAND:
+		MEMSET(ADR(sSendMessage),0,SIZEOF(sSendMessage));
+		sSendMessage := FUN_MergeStrings3('Put Update ', TO_STRING(iUpdateNumber), '$R$L');
+		FUN_StringToTcpBufferData(ADR(sSendMessage),ADR(stSendData));
+		
+		IF fbTcpClient.MR_AppendToSendBuffer(stSendData) THEN
+			eCameraMethodState := CAMERA_METHOD_RECEIVE_RESPONSE;
+							
+		END_IF
+
+	CAMERA_METHOD_RECEIVE_RESPONSE:
+		stReciveData := fbTcpClient.NextRecivedMessage;
+		
+		IF stReciveData.iLength > 0 THEN
+			MEMSET(ADR(sReciveMessage),0,SIZEOF(sReciveMessage));
+			FUN_TcpBufferDataToString(ADR(sReciveMessage),ADR(stReciveData));
+			MEMCPY(ADR(sLastStatusCode),ADR(sReciveMessage),2);
+			iLastStatusCode := STRING_TO_INT(sLastStatusCode);
+			
+			IF iLastStatusCode = 1 THEN 
+				eCameraPutUpdateStatus := 1;
+				
+			ELSIF iLastStatusCode = 0 THEN
+				eCameraPutUpdateStatus := 0;
+				
+			ELSIF iLastStatusCode = -1 THEN
+				eCameraPutUpdateStatus := -1;
+				
+			ELSIF iLastStatusCode = -2 THEN
+				eCameraPutUpdateStatus := -2;
+				
+			ELSIF iLastStatusCode = -6 THEN
+				eCameraPutUpdateStatus := -6;
+				
+			END_IF	
+			eCameraMethodState := CAMERA_METHOD_SEND_COMMAND;
+			eCameraState := CAMERA_METHOD_DONE;
+
+		END_IF
+END_CASE]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_PutWatch" Id="{1dd54bfb-5cf0-4180-855b-80fc837cc68d}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[METHOD PROTECTED MS_PutWatch ]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[CASE eCameraMethodState OF
+	CAMERA_METHOD_SEND_COMMAND:
+		MEMSET(ADR(sSendMessage),0,SIZEOF(sSendMessage));
+		sSendMessage := FUN_MergeStrings5('Put Watch ', TO_STRING(iColumnPut), TO_STRING(iRowPut), TO_STRING(iOutputEnable), '$R$L');
+		FUN_StringToTcpBufferData(ADR(sSendMessage),ADR(stSendData));
+		
+		IF fbTcpClient.MR_AppendToSendBuffer(stSendData) THEN
+			eCameraMethodState := CAMERA_METHOD_RECEIVE_RESPONSE;
+							
+		END_IF
+
+	CAMERA_METHOD_RECEIVE_RESPONSE:
+		stReciveData := fbTcpClient.NextRecivedMessage;
+		
+		IF stReciveData.iLength > 0 THEN
+			MEMSET(ADR(sReciveMessage),0,SIZEOF(sReciveMessage));
+			FUN_TcpBufferDataToString(ADR(sReciveMessage),ADR(stReciveData));
+			MEMCPY(ADR(sLastStatusCode),ADR(sReciveMessage),2);
+			iLastStatusCode := STRING_TO_INT(sLastStatusCode);
+			
+			IF iLastStatusCode = 1 THEN 
+				eCameraPutWatchStatus := 1;
+				
+			ELSIF iLastStatusCode = 0 THEN
+				eCameraPutWatchStatus := 0;
+				
+			ELSIF iLastStatusCode = -1 THEN
+				eCameraPutWatchStatus := -1;
+				
+			ELSIF iLastStatusCode = -2 THEN
+				eCameraPutWatchStatus := -2;
+				
+			ELSIF iLastStatusCode = -6 THEN
+				eCameraPutWatchStatus := -6;
+				
+			END_IF	
+			eCameraMethodState := CAMERA_METHOD_SEND_COMMAND;
+			eCameraState := CAMERA_METHOD_DONE;
+
+		END_IF
+END_CASE]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_Ready" Id="{da1cb0da-b04e-418b-8b9c-d8c5bf684179}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[METHOD PROTECTED MS_Ready
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[eCameraState := CAMERA_IDLE;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_Reset" Id="{ee78541b-dc67-4d24-82f5-58537ba77a3e}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[METHOD PROTECTED MS_Reset
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF M_ResetParameters() THEN
+	eCameraState := CAMERA_METHOD_DONE;
+	
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_ResetSystem" Id="{6c0fa77f-f439-4aea-8389-81345ecc814d}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[METHOD PROTECTED MS_ResetSystem 
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[CASE eCameraMethodState OF
+	CAMERA_METHOD_SEND_COMMAND:
+		MEMSET(ADR(sSendMessage),0,SIZEOF(sSendMessage));
+		sSendMessage := 'RT$R$L';
+		FUN_StringToTcpBufferData(ADR(sSendMessage),ADR(stSendData));
+		
+		IF fbTcpClient.MR_AppendToSendBuffer(stSendData) THEN
+			eCameraMethodState := CAMERA_METHOD_RECEIVE_RESPONSE;
+							
+		END_IF
+
+	CAMERA_METHOD_RECEIVE_RESPONSE:
+		stReciveData := fbTcpClient.NextRecivedMessage;
+		
+		IF stReciveData.iLength > 0 THEN
+			MEMSET(ADR(sReciveMessage),0,SIZEOF(sReciveMessage));
+			FUN_TcpBufferDataToString(ADR(sReciveMessage),ADR(stReciveData));
+			MEMCPY(ADR(sLastStatusCode),ADR(sReciveMessage),2);
+			iLastStatusCode := STRING_TO_INT(sLastStatusCode);
+			
+			IF iLastStatusCode = -6 THEN 
+				eCameraResetSystemStatus := -6;
+				
+			END_IF	
+		ELSE
+			eCameraResetSystemStatus := -1;
+			
+		END_IF
+		eCameraMethodState := CAMERA_METHOD_SEND_COMMAND;
+		eCameraState := CAMERA_METHOD_DONE;
+		
+END_CASE]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_SetJob" Id="{981c911d-f431-4dc7-94f7-e8facba6444c}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[METHOD PROTECTED MS_SetJob 
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[CASE eCameraMethodState OF
+	CAMERA_METHOD_SEND_COMMAND:
+		MEMSET(ADR(sSendMessage),0,SIZEOF(sSendMessage));
+		sSendMessage := FUN_MergeStrings3('SJ', TO_STRING(iJobNumber), '$R$L');
+		FUN_StringToTcpBufferData(ADR(sSendMessage),ADR(stSendData));
+		
+		IF fbTcpClient.MR_AppendToSendBuffer(stSendData) THEN
+			eCameraMethodState := CAMERA_METHOD_RECEIVE_RESPONSE;
+							
+		END_IF
+
+	CAMERA_METHOD_RECEIVE_RESPONSE:
+		stReciveData := fbTcpClient.NextRecivedMessage;
+		
+		IF stReciveData.iLength > 0 THEN
+			MEMSET(ADR(sReciveMessage),0,SIZEOF(sReciveMessage));
+			FUN_TcpBufferDataToString(ADR(sReciveMessage),ADR(stReciveData));
+			MEMCPY(ADR(sLastStatusCode),ADR(sReciveMessage),2);
+			iLastStatusCode := STRING_TO_INT(sLastStatusCode);
+			
+			IF iLastStatusCode = 1 THEN 
+				eCameraSetJobStatus := 1;
+				
+			ELSIF iLastStatusCode = 0 THEN
+				eCameraSetJobStatus := 0;
+				
+			ELSIF iLastStatusCode = -1 THEN
+				eCameraSetJobStatus := -1;
+				
+			ELSIF iLastStatusCode = -2 THEN
+				eCameraSetJobStatus := -2;
+				
+			ELSIF iLastStatusCode = -4 THEN
+				eCameraSetJobStatus := -4;
+				
+			ELSIF iLastStatusCode = -6 THEN
+				eCameraSetJobStatus := -6;
+				
+			END_IF	
+			eCameraMethodState := CAMERA_METHOD_SEND_COMMAND;
+			eCameraState := CAMERA_METHOD_DONE;
+
+		END_IF
+END_CASE]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_SetOnline" Id="{309f9dee-16a2-47b5-b59d-6bd7f0808d5a}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[METHOD PROTECTED MS_SetOnline 
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[CASE eCameraMethodState OF
+	CAMERA_METHOD_SEND_COMMAND:
+		MEMSET(ADR(sSendMessage),0,SIZEOF(sSendMessage));
+		sSendMessage := FUN_MergeStrings3('SO', TO_STRING(bSetCameraOnline), '$R$L');
+		FUN_StringToTcpBufferData(ADR(sSendMessage),ADR(stSendData));
+		
+		IF fbTcpClient.MR_AppendToSendBuffer(stSendData) THEN
+			eCameraMethodState := CAMERA_METHOD_RECEIVE_RESPONSE;
+							
+		END_IF
+
+	CAMERA_METHOD_RECEIVE_RESPONSE:
+		stReciveData := fbTcpClient.NextRecivedMessage;
+		
+		IF stReciveData.iLength > 0 THEN
+			MEMSET(ADR(sReciveMessage),0,SIZEOF(sReciveMessage));
+			FUN_TcpBufferDataToString(ADR(sReciveMessage),ADR(stReciveData));
+			MEMCPY(ADR(sLastStatusCode),ADR(sReciveMessage),2);
+			iLastStatusCode := STRING_TO_INT(sLastStatusCode);
+			
+			IF iLastStatusCode = 1 THEN 
+				eCameraSetOnlineStatus := 1;
+				
+			ELSIF iLastStatusCode = 0 THEN
+				eCameraSetOnlineStatus := 0;
+				
+			ELSIF iLastStatusCode = -1 THEN
+				eCameraSetOnlineStatus := -1;
+				
+			ELSIF iLastStatusCode = -2 THEN
+				eCameraSetOnlineStatus := -2;
+				
+			ELSIF iLastStatusCode = -5 THEN
+				eCameraSetOnlineStatus := -5;
+				
+			ELSIF iLastStatusCode = -6 THEN
+				eCameraSetOnlineStatus := -6;
+				
+			END_IF	
+			eCameraMethodState := CAMERA_METHOD_SEND_COMMAND;
+			eCameraState := CAMERA_METHOD_DONE;
+
+		END_IF
+END_CASE]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_StoreFile" Id="{a0449d88-03ee-4198-a24a-a9efddf7709e}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[METHOD PROTECTED MS_StoreFile 
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[CASE eCameraMethodState OF
+	CAMERA_METHOD_SEND_COMMAND:
+		MEMSET(ADR(sSendMessage),0,SIZEOF(sSendMessage));
+		sSendMessage := FUN_MergeStrings3('TF', sStoreFileName,'$R$L');
+		FUN_StringToTcpBufferData(ADR(sSendMessage),ADR(stSendData));
+		
+		IF fbTcpClient.MR_AppendToSendBuffer(stSendData) THEN
+			eCameraMethodState := CAMERA_METHOD_RECEIVE_RESPONSE;
+							
+		END_IF
+
+	CAMERA_METHOD_RECEIVE_RESPONSE:
+		stReciveData := fbTcpClient.NextRecivedMessage;
+		
+		IF stReciveData.iLength > 0 THEN
+			MEMSET(ADR(sReciveMessage),0,SIZEOF(sReciveMessage));
+			FUN_TcpBufferDataToString(ADR(sReciveMessage),ADR(stReciveData));
+			MEMCPY(ADR(sLastStatusCode),ADR(sReciveMessage),2);
+			iLastStatusCode := STRING_TO_INT(sLastStatusCode);
+			
+			IF iLastStatusCode = 1 THEN 
+				eCameraStoreFileStatus := 1;
+			ELSIF iLastStatusCode = 0 THEN
+				eCameraStoreFileStatus := 0;
+			ELSIF iLastStatusCode = -1 THEN
+				eCameraStoreFileStatus := -1;
+			ELSIF iLastStatusCode = -2 THEN
+				eCameraStoreFileStatus := -2;
+			ELSIF iLastStatusCode = -6 THEN
+				eCameraStoreFileStatus := -6;
+			END_IF	
+			eCameraMethodState := CAMERA_METHOD_SEND_COMMAND;
+			eCameraState := CAMERA_METHOD_DONE;
+
+		END_IF
+END_CASE]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_Uninitialized" Id="{ab323fd2-e811-4486-88e1-262ae6c04835}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[METHOD PROTECTED MS_Uninitialized 
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[;]]></ST>
+      </Implementation>
+    </Method>
+    <Property Name="Name" Id="{4a078faf-3bd9-4610-a499-236b0a695418}" FolderPath="Properties\Parameters\">
+      <Declaration><![CDATA[PROPERTY Name : STRING]]></Declaration>
+      <Get Name="Get" Id="{39463867-82b4-4ce9-8a3c-cf4d235537bf}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[Name := sName;]]></ST>
+        </Implementation>
+      </Get>
+      <Set Name="Set" Id="{50dad3e8-c9c3-4f17-b324-4ed868863119}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[sName := Name;]]></ST>
+        </Implementation>
+      </Set>
+    </Property>
+    <Property Name="ref_TcpClient" Id="{7db46bc5-2002-4266-9737-40d45c5940b6}" FolderPath="Properties\References\">
+      <Declaration><![CDATA[PROPERTY ref_TcpClient : REFERENCE TO FB_TcpClient]]></Declaration>
+      <Get Name="Get" Id="{c2a46e04-10f7-45a5-90d9-72df9eb5b0cb}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[ref_TcpClient REF= fbTcpClient;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Method Name="StateMachine" Id="{c7fa224d-0dcf-4ab9-87ce-d67df4a68537}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[METHOD PROTECTED StateMachine
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[CASE eCameraState OF
+	CAMERA_UNINITIALIZED:
+		MS_Uninitialized();
+		
+	CAMERA_INITIALIZING:
+		MS_Initializing();
+		
+	CAMERA_READY:
+		MS_Ready();
+	
+	CAMERA_IDLE:
+		MS_Idle();	
+		
+	CAMERA_RESET:
+		MS_Reset();
+		
+	CAMERA_LOAD_FILE:
+		MS_LoadFile();	
+		
+	CAMERA_GET_FILE:
+		MS_GetFile();
+
+	CAMERA_GET_VALUE_EASY_BUILDER:
+		MS_GetValueEasyBuilder();	
+		
+	CAMERA_GET_VALUE_SPREADSHEET:
+		MS_GetValueSpreadsheet();	
+		
+	CAMERA_SET_ONLINE:
+		MS_SetOnline();	
+	
+	CAMERA_GET_ONLINE:
+		MS_GetOnline();
+		
+	CAMERA_RESET_SYSTEM:
+		MS_ResetSystem();
+	
+	CAMERA_GET_CONNECTIONS:
+		MS_GetConnections();
+		
+	CAMERA_GET_EXPR:
+		MS_GetExpr();
+	
+	CAMERA_GET_FILE_LIST:
+		MS_GetFileList();
+	
+	CAMERA_PUT_LIVE:
+		MS_PutLive();
+	
+	CAMERA_PUT_PORTNUM:
+		MS_PutPortnum();
+	
+	CAMERA_PUT_TIMEOUT:
+		MS_PutTimeout();
+	
+	CAMERA_PUT_UPDATE:
+		MS_PutUpdate();
+	
+	CAMERA_PUT_WATCH:
+		MS_PutWatch();	
+	
+	CAMERA_SET_JOB:
+		MS_SetJob();
+		
+	CAMERA_GET_JOB:
+		MS_GetJob();
+	
+	CAMERA_STORE_FILE:
+		MS_StoreFile();	
+		
+	CAMERA_GET_POSITION:
+		MS_GetPosition();
+	
+	CAMERA_IMAGE_TRIGGER:
+		MS_ImageTrigger();
+	
+	CAMERA_GET_VALUES:
+		MS_GetValues();
+	
+	CAMERA_METHOD_DONE:
+		MS_MethodDone();
+	
+	CAMERA_ABORTING:
+		MS_Aborting();
+	
+END_CASE]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_CognexCamera">
+      <LineId Id="3" Count="4" />
+      <LineId Id="169" Count="0" />
+      <LineId Id="8" Count="0" />
+      <LineId Id="170" Count="0" />
+      <LineId Id="9" Count="6" />
+      <LineId Id="168" Count="0" />
+      <LineId Id="162" Count="1" />
+      <LineId Id="160" Count="0" />
+      <LineId Id="171" Count="0" />
+      <LineId Id="18" Count="1" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.Active.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.Busy.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.Error.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.ErrorID.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.M_ResetParameters">
+      <LineId Id="167" Count="69" />
+      <LineId Id="263" Count="11" />
+      <LineId Id="276" Count="0" />
+      <LineId Id="275" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MR_Abort">
+      <LineId Id="3" Count="0" />
+      <LineId Id="5" Count="5" />
+      <LineId Id="13" Count="3" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MR_FirstCycle">
+      <LineId Id="3" Count="8" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MR_GetConnections">
+      <LineId Id="3" Count="0" />
+      <LineId Id="5" Count="1" />
+      <LineId Id="8" Count="3" />
+      <LineId Id="13" Count="3" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MR_GetExpr">
+      <LineId Id="3" Count="0" />
+      <LineId Id="26" Count="1" />
+      <LineId Id="25" Count="0" />
+      <LineId Id="5" Count="1" />
+      <LineId Id="11" Count="3" />
+      <LineId Id="16" Count="3" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MR_GetFile">
+      <LineId Id="3" Count="0" />
+      <LineId Id="5" Count="1" />
+      <LineId Id="8" Count="3" />
+      <LineId Id="13" Count="3" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MR_GetFileList">
+      <LineId Id="3" Count="0" />
+      <LineId Id="5" Count="1" />
+      <LineId Id="8" Count="3" />
+      <LineId Id="13" Count="3" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MR_GetJob">
+      <LineId Id="3" Count="0" />
+      <LineId Id="5" Count="1" />
+      <LineId Id="8" Count="3" />
+      <LineId Id="13" Count="3" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MR_GetOnline">
+      <LineId Id="3" Count="0" />
+      <LineId Id="5" Count="1" />
+      <LineId Id="8" Count="3" />
+      <LineId Id="13" Count="3" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MR_GetPosition">
+      <LineId Id="3" Count="0" />
+      <LineId Id="37" Count="1" />
+      <LineId Id="36" Count="0" />
+      <LineId Id="5" Count="1" />
+      <LineId Id="11" Count="6" />
+      <LineId Id="19" Count="5" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MR_GetValueEasyBuilder">
+      <LineId Id="3" Count="0" />
+      <LineId Id="21" Count="0" />
+      <LineId Id="5" Count="1" />
+      <LineId Id="9" Count="3" />
+      <LineId Id="14" Count="3" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MR_GetValues">
+      <LineId Id="3" Count="0" />
+      <LineId Id="40" Count="2" />
+      <LineId Id="5" Count="0" />
+      <LineId Id="43" Count="0" />
+      <LineId Id="6" Count="0" />
+      <LineId Id="12" Count="7" />
+      <LineId Id="21" Count="5" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MR_GetValueSpreadsheet">
+      <LineId Id="3" Count="0" />
+      <LineId Id="24" Count="0" />
+      <LineId Id="23" Count="0" />
+      <LineId Id="5" Count="1" />
+      <LineId Id="10" Count="3" />
+      <LineId Id="15" Count="3" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MR_ImageTrigger">
+      <LineId Id="3" Count="0" />
+      <LineId Id="5" Count="1" />
+      <LineId Id="8" Count="3" />
+      <LineId Id="13" Count="3" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MR_Init">
+      <LineId Id="3" Count="0" />
+      <LineId Id="5" Count="1" />
+      <LineId Id="9" Count="3" />
+      <LineId Id="15" Count="3" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MR_LoadFile">
+      <LineId Id="3" Count="0" />
+      <LineId Id="21" Count="0" />
+      <LineId Id="5" Count="1" />
+      <LineId Id="9" Count="3" />
+      <LineId Id="14" Count="3" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MR_PutLive">
+      <LineId Id="3" Count="0" />
+      <LineId Id="21" Count="0" />
+      <LineId Id="5" Count="1" />
+      <LineId Id="9" Count="3" />
+      <LineId Id="14" Count="3" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MR_PutPortnum">
+      <LineId Id="3" Count="0" />
+      <LineId Id="21" Count="0" />
+      <LineId Id="5" Count="1" />
+      <LineId Id="9" Count="3" />
+      <LineId Id="14" Count="3" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MR_PutTimeout">
+      <LineId Id="3" Count="0" />
+      <LineId Id="21" Count="0" />
+      <LineId Id="5" Count="1" />
+      <LineId Id="9" Count="3" />
+      <LineId Id="14" Count="3" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MR_PutUpdate">
+      <LineId Id="3" Count="0" />
+      <LineId Id="5" Count="0" />
+      <LineId Id="22" Count="0" />
+      <LineId Id="6" Count="0" />
+      <LineId Id="9" Count="3" />
+      <LineId Id="21" Count="0" />
+      <LineId Id="15" Count="2" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MR_PutWatch">
+      <LineId Id="3" Count="0" />
+      <LineId Id="26" Count="1" />
+      <LineId Id="25" Count="0" />
+      <LineId Id="5" Count="1" />
+      <LineId Id="11" Count="3" />
+      <LineId Id="16" Count="3" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MR_Reset">
+      <LineId Id="3" Count="0" />
+      <LineId Id="5" Count="0" />
+      <LineId Id="27" Count="0" />
+      <LineId Id="8" Count="3" />
+      <LineId Id="13" Count="0" />
+      <LineId Id="15" Count="2" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MR_ResetSystem">
+      <LineId Id="3" Count="0" />
+      <LineId Id="5" Count="1" />
+      <LineId Id="8" Count="3" />
+      <LineId Id="13" Count="3" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MR_SetJob">
+      <LineId Id="3" Count="0" />
+      <LineId Id="21" Count="0" />
+      <LineId Id="5" Count="1" />
+      <LineId Id="9" Count="3" />
+      <LineId Id="14" Count="3" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MR_SetOnline">
+      <LineId Id="3" Count="0" />
+      <LineId Id="21" Count="0" />
+      <LineId Id="5" Count="1" />
+      <LineId Id="9" Count="3" />
+      <LineId Id="14" Count="3" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MR_StoreFile">
+      <LineId Id="3" Count="0" />
+      <LineId Id="22" Count="0" />
+      <LineId Id="5" Count="1" />
+      <LineId Id="9" Count="3" />
+      <LineId Id="14" Count="3" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MS_Aborting">
+      <LineId Id="3" Count="2" />
+      <LineId Id="114" Count="0" />
+      <LineId Id="122" Count="0" />
+      <LineId Id="124" Count="0" />
+      <LineId Id="123" Count="0" />
+      <LineId Id="117" Count="0" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MS_GetConnections">
+      <LineId Id="3" Count="21" />
+      <LineId Id="43" Count="0" />
+      <LineId Id="25" Count="1" />
+      <LineId Id="42" Count="0" />
+      <LineId Id="27" Count="1" />
+      <LineId Id="41" Count="0" />
+      <LineId Id="29" Count="1" />
+      <LineId Id="40" Count="0" />
+      <LineId Id="31" Count="1" />
+      <LineId Id="39" Count="0" />
+      <LineId Id="33" Count="0" />
+      <LineId Id="38" Count="0" />
+      <LineId Id="35" Count="2" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MS_GetExpr">
+      <LineId Id="3" Count="21" />
+      <LineId Id="39" Count="0" />
+      <LineId Id="25" Count="1" />
+      <LineId Id="38" Count="0" />
+      <LineId Id="27" Count="1" />
+      <LineId Id="37" Count="0" />
+      <LineId Id="29" Count="1" />
+      <LineId Id="36" Count="0" />
+      <LineId Id="31" Count="4" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MS_GetFile">
+      <LineId Id="3" Count="21" />
+      <LineId Id="37" Count="0" />
+      <LineId Id="25" Count="1" />
+      <LineId Id="36" Count="0" />
+      <LineId Id="27" Count="1" />
+      <LineId Id="35" Count="0" />
+      <LineId Id="29" Count="4" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MS_GetFileList">
+      <LineId Id="3" Count="21" />
+      <LineId Id="37" Count="0" />
+      <LineId Id="25" Count="1" />
+      <LineId Id="38" Count="0" />
+      <LineId Id="27" Count="1" />
+      <LineId Id="39" Count="0" />
+      <LineId Id="29" Count="1" />
+      <LineId Id="40" Count="0" />
+      <LineId Id="31" Count="4" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MS_GetJob">
+      <LineId Id="3" Count="21" />
+      <LineId Id="37" Count="0" />
+      <LineId Id="25" Count="1" />
+      <LineId Id="36" Count="0" />
+      <LineId Id="27" Count="1" />
+      <LineId Id="35" Count="0" />
+      <LineId Id="29" Count="4" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MS_GetOnline">
+      <LineId Id="3" Count="21" />
+      <LineId Id="34" Count="0" />
+      <LineId Id="25" Count="1" />
+      <LineId Id="33" Count="0" />
+      <LineId Id="27" Count="4" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MS_GetPosition">
+      <LineId Id="3" Count="24" />
+      <LineId Id="133" Count="0" />
+      <LineId Id="28" Count="1" />
+      <LineId Id="132" Count="0" />
+      <LineId Id="30" Count="1" />
+      <LineId Id="131" Count="0" />
+      <LineId Id="32" Count="1" />
+      <LineId Id="130" Count="0" />
+      <LineId Id="34" Count="0" />
+      <LineId Id="36" Count="27" />
+      <LineId Id="129" Count="0" />
+      <LineId Id="64" Count="1" />
+      <LineId Id="128" Count="0" />
+      <LineId Id="66" Count="1" />
+      <LineId Id="127" Count="0" />
+      <LineId Id="68" Count="1" />
+      <LineId Id="126" Count="0" />
+      <LineId Id="70" Count="0" />
+      <LineId Id="72" Count="28" />
+      <LineId Id="125" Count="0" />
+      <LineId Id="101" Count="1" />
+      <LineId Id="124" Count="0" />
+      <LineId Id="103" Count="1" />
+      <LineId Id="123" Count="0" />
+      <LineId Id="105" Count="1" />
+      <LineId Id="122" Count="0" />
+      <LineId Id="107" Count="0" />
+      <LineId Id="109" Count="4" />
+      <LineId Id="115" Count="1" />
+      <LineId Id="121" Count="0" />
+      <LineId Id="117" Count="0" />
+      <LineId Id="120" Count="0" />
+      <LineId Id="118" Count="1" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MS_GetValueEasyBuilder">
+      <LineId Id="3" Count="21" />
+      <LineId Id="40" Count="0" />
+      <LineId Id="25" Count="1" />
+      <LineId Id="39" Count="0" />
+      <LineId Id="27" Count="1" />
+      <LineId Id="38" Count="0" />
+      <LineId Id="29" Count="1" />
+      <LineId Id="37" Count="0" />
+      <LineId Id="31" Count="4" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MS_GetValues">
+      <LineId Id="3" Count="24" />
+      <LineId Id="157" Count="0" />
+      <LineId Id="28" Count="1" />
+      <LineId Id="158" Count="0" />
+      <LineId Id="30" Count="1" />
+      <LineId Id="159" Count="0" />
+      <LineId Id="32" Count="1" />
+      <LineId Id="160" Count="0" />
+      <LineId Id="34" Count="0" />
+      <LineId Id="36" Count="27" />
+      <LineId Id="161" Count="0" />
+      <LineId Id="64" Count="1" />
+      <LineId Id="162" Count="0" />
+      <LineId Id="66" Count="1" />
+      <LineId Id="163" Count="0" />
+      <LineId Id="68" Count="1" />
+      <LineId Id="164" Count="0" />
+      <LineId Id="70" Count="0" />
+      <LineId Id="72" Count="28" />
+      <LineId Id="165" Count="0" />
+      <LineId Id="101" Count="1" />
+      <LineId Id="166" Count="0" />
+      <LineId Id="103" Count="1" />
+      <LineId Id="167" Count="0" />
+      <LineId Id="105" Count="1" />
+      <LineId Id="168" Count="0" />
+      <LineId Id="107" Count="0" />
+      <LineId Id="109" Count="28" />
+      <LineId Id="169" Count="0" />
+      <LineId Id="138" Count="1" />
+      <LineId Id="170" Count="0" />
+      <LineId Id="140" Count="1" />
+      <LineId Id="171" Count="0" />
+      <LineId Id="142" Count="1" />
+      <LineId Id="173" Count="0" />
+      <LineId Id="144" Count="0" />
+      <LineId Id="146" Count="7" />
+      <LineId Id="174" Count="0" />
+      <LineId Id="154" Count="0" />
+      <LineId Id="175" Count="0" />
+      <LineId Id="155" Count="1" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MS_GetValueSpreadsheet">
+      <LineId Id="3" Count="21" />
+      <LineId Id="37" Count="0" />
+      <LineId Id="25" Count="1" />
+      <LineId Id="38" Count="0" />
+      <LineId Id="27" Count="1" />
+      <LineId Id="39" Count="0" />
+      <LineId Id="29" Count="1" />
+      <LineId Id="40" Count="0" />
+      <LineId Id="31" Count="4" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MS_Idle">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MS_ImageTrigger">
+      <LineId Id="3" Count="21" />
+      <LineId Id="43" Count="0" />
+      <LineId Id="25" Count="1" />
+      <LineId Id="42" Count="0" />
+      <LineId Id="27" Count="1" />
+      <LineId Id="41" Count="0" />
+      <LineId Id="29" Count="1" />
+      <LineId Id="39" Count="0" />
+      <LineId Id="31" Count="1" />
+      <LineId Id="38" Count="0" />
+      <LineId Id="33" Count="4" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MS_Initializing">
+      <LineId Id="3" Count="21" />
+      <LineId Id="26" Count="6" />
+      <LineId Id="34" Count="9" />
+      <LineId Id="45" Count="4" />
+      <LineId Id="51" Count="16" />
+      <LineId Id="69" Count="14" />
+      <LineId Id="85" Count="10" />
+      <LineId Id="97" Count="5" />
+      <LineId Id="104" Count="11" />
+      <LineId Id="121" Count="0" />
+      <LineId Id="116" Count="1" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MS_LoadFile">
+      <LineId Id="3" Count="21" />
+      <LineId Id="41" Count="0" />
+      <LineId Id="25" Count="1" />
+      <LineId Id="42" Count="0" />
+      <LineId Id="27" Count="1" />
+      <LineId Id="43" Count="0" />
+      <LineId Id="29" Count="1" />
+      <LineId Id="44" Count="0" />
+      <LineId Id="31" Count="1" />
+      <LineId Id="45" Count="0" />
+      <LineId Id="33" Count="1" />
+      <LineId Id="46" Count="0" />
+      <LineId Id="35" Count="4" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MS_MethodDone">
+      <LineId Id="3" Count="1" />
+      <LineId Id="8" Count="0" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MS_PutLive">
+      <LineId Id="3" Count="21" />
+      <LineId Id="43" Count="0" />
+      <LineId Id="25" Count="1" />
+      <LineId Id="42" Count="0" />
+      <LineId Id="27" Count="1" />
+      <LineId Id="41" Count="0" />
+      <LineId Id="29" Count="1" />
+      <LineId Id="40" Count="0" />
+      <LineId Id="31" Count="1" />
+      <LineId Id="39" Count="0" />
+      <LineId Id="33" Count="4" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MS_PutPortnum">
+      <LineId Id="3" Count="21" />
+      <LineId Id="43" Count="0" />
+      <LineId Id="25" Count="1" />
+      <LineId Id="42" Count="0" />
+      <LineId Id="27" Count="1" />
+      <LineId Id="41" Count="0" />
+      <LineId Id="29" Count="1" />
+      <LineId Id="40" Count="0" />
+      <LineId Id="31" Count="1" />
+      <LineId Id="39" Count="0" />
+      <LineId Id="33" Count="4" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MS_PutTimeout">
+      <LineId Id="3" Count="21" />
+      <LineId Id="43" Count="0" />
+      <LineId Id="25" Count="1" />
+      <LineId Id="41" Count="0" />
+      <LineId Id="27" Count="1" />
+      <LineId Id="40" Count="0" />
+      <LineId Id="29" Count="1" />
+      <LineId Id="39" Count="0" />
+      <LineId Id="31" Count="0" />
+      <LineId Id="37" Count="0" />
+      <LineId Id="34" Count="0" />
+      <LineId Id="38" Count="0" />
+      <LineId Id="35" Count="0" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MS_PutUpdate">
+      <LineId Id="3" Count="21" />
+      <LineId Id="44" Count="0" />
+      <LineId Id="25" Count="1" />
+      <LineId Id="43" Count="0" />
+      <LineId Id="27" Count="1" />
+      <LineId Id="42" Count="0" />
+      <LineId Id="29" Count="1" />
+      <LineId Id="41" Count="0" />
+      <LineId Id="31" Count="1" />
+      <LineId Id="40" Count="0" />
+      <LineId Id="33" Count="0" />
+      <LineId Id="39" Count="0" />
+      <LineId Id="35" Count="2" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MS_PutWatch">
+      <LineId Id="3" Count="21" />
+      <LineId Id="43" Count="0" />
+      <LineId Id="25" Count="1" />
+      <LineId Id="42" Count="0" />
+      <LineId Id="27" Count="1" />
+      <LineId Id="41" Count="0" />
+      <LineId Id="29" Count="1" />
+      <LineId Id="40" Count="0" />
+      <LineId Id="31" Count="1" />
+      <LineId Id="39" Count="0" />
+      <LineId Id="33" Count="0" />
+      <LineId Id="38" Count="0" />
+      <LineId Id="35" Count="2" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MS_Ready">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MS_Reset">
+      <LineId Id="2" Count="0" />
+      <LineId Id="116" Count="0" />
+      <LineId Id="118" Count="0" />
+      <LineId Id="117" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MS_ResetSystem">
+      <LineId Id="3" Count="21" />
+      <LineId Id="36" Count="0" />
+      <LineId Id="40" Count="0" />
+      <LineId Id="29" Count="1" />
+      <LineId Id="32" Count="1" />
+      <LineId Id="38" Count="1" />
+      <LineId Id="34" Count="0" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MS_SetJob">
+      <LineId Id="3" Count="21" />
+      <LineId Id="42" Count="0" />
+      <LineId Id="25" Count="1" />
+      <LineId Id="43" Count="0" />
+      <LineId Id="27" Count="1" />
+      <LineId Id="44" Count="0" />
+      <LineId Id="29" Count="1" />
+      <LineId Id="45" Count="0" />
+      <LineId Id="31" Count="1" />
+      <LineId Id="46" Count="0" />
+      <LineId Id="33" Count="1" />
+      <LineId Id="47" Count="0" />
+      <LineId Id="35" Count="0" />
+      <LineId Id="41" Count="0" />
+      <LineId Id="37" Count="2" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MS_SetOnline">
+      <LineId Id="3" Count="21" />
+      <LineId Id="42" Count="0" />
+      <LineId Id="25" Count="1" />
+      <LineId Id="47" Count="0" />
+      <LineId Id="27" Count="1" />
+      <LineId Id="46" Count="0" />
+      <LineId Id="29" Count="1" />
+      <LineId Id="45" Count="0" />
+      <LineId Id="31" Count="1" />
+      <LineId Id="44" Count="0" />
+      <LineId Id="33" Count="1" />
+      <LineId Id="43" Count="0" />
+      <LineId Id="35" Count="0" />
+      <LineId Id="41" Count="0" />
+      <LineId Id="37" Count="2" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MS_StoreFile">
+      <LineId Id="3" Count="30" />
+      <LineId Id="39" Count="0" />
+      <LineId Id="35" Count="2" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.MS_Uninitialized">
+      <LineId Id="26" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.Name.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.Name.Set">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.ref_TcpClient.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CognexCamera.StateMachine">
+      <LineId Id="3" Count="15" />
+      <LineId Id="22" Count="1" />
+      <LineId Id="27" Count="2" />
+      <LineId Id="33" Count="2" />
+      <LineId Id="39" Count="2" />
+      <LineId Id="45" Count="2" />
+      <LineId Id="51" Count="2" />
+      <LineId Id="57" Count="2" />
+      <LineId Id="63" Count="2" />
+      <LineId Id="69" Count="2" />
+      <LineId Id="75" Count="2" />
+      <LineId Id="81" Count="2" />
+      <LineId Id="87" Count="2" />
+      <LineId Id="93" Count="2" />
+      <LineId Id="99" Count="2" />
+      <LineId Id="105" Count="2" />
+      <LineId Id="111" Count="2" />
+      <LineId Id="117" Count="2" />
+      <LineId Id="123" Count="2" />
+      <LineId Id="129" Count="2" />
+      <LineId Id="135" Count="2" />
+      <LineId Id="141" Count="2" />
+      <LineId Id="147" Count="0" />
+      <LineId Id="153" Count="0" />
+      <LineId Id="152" Count="0" />
+      <LineId Id="154" Count="0" />
+      <LineId Id="148" Count="2" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="E_CognexCameraGetExprStatus" Id="{7b479f2e-7bc0-4468-8a06-c9b86371a1f1}">
+    <Declaration><![CDATA[{attribute 'strict'}
+TYPE E_CognexCameraGetExprStatus :
+(
+	WAITING_FOR_STATUS_CODE										:= 2,
+	THE_COMMAND_WAS_EXECUTED_SUCCESSFULLY						:= 1,
+	UNRECOGNIZED_COMMAND 										:= 0,
+	THE_CELL_ID_IS_INVALID_OR_HAS_EXCEEDED_15_BYTES_IN_LENGTH	:= -1,
+	THE_COMMAND_COULD_NOT_BE_EXECUTED 							:= -2
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

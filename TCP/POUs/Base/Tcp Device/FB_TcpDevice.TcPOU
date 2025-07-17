@@ -1,0 +1,707 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_TcpDevice" Id="{51baa488-a744-41e8-af96-e6d860ed44ab}" SpecialFunc="None">
+    <Declaration><![CDATA[(* :Description: This function block represent basic TCP/IP device. It is used to build other function blocks like client and server. *)
+FUNCTION_BLOCK ABSTRACT FB_TcpDevice IMPLEMENTS I_TcpDevice
+VAR
+	bFirstCycle 			: BOOL := TRUE;				(* First cycle bit *)		
+	sName 					: STRING;					(* TCP/IP device name for other utilities *)
+	
+	(* Internal commadns *)
+	bInit					: BOOL;						(* Initialize  TCP/IP device*)
+	bAbort 					: BOOL;						(* Deinitialize TCP/IP device*)
+	
+	(* Internal status *)
+	bActive					: BOOL;						(* TCP/IP device initialized and ready to work *)
+	bBusy					: BOOL;						(* TCP/IP device is currently proccesing *)
+	bError					: BOOL;						(* Error occured while executing *)
+	bInitFailed				: BOOL;						(* Error occured while initializing *)
+	iErrorID 				: UDINT;					(* Error ID*)
+	eTcpDeviceState		 	: E_TcpIpDeviceState;		(* Current state of TCP/IP device*)
+	eTcpDeviceSendState		: E_TcpIpDeviceStateSend;	(* Sending procedure state machine *)
+	eTcpDeviceReciveState	: E_TcpIpDeviceStateRecive;	(* Reciving procedure state machine *)
+	bConnectionLostError 	: BOOL;						(* Internal data exchange error - occured only in Running state *)
+
+	(* Internal parameters *)
+	sHost					: T_IPv4Addr;				(* IP address *)
+	sAmsNetID 				: T_AmsNetID;				(* AMS network address *)
+	iPort					: UINT;						(* Communication port *)
+	tTimeout				: TIME;						(* Connection timeout *)
+	stHSocket				: T_HSOCKET;				(* Socket handle *)
+	stSocketToClose			: T_HSOCKET;
+
+	(* Data buffers *)
+	fbReceiveBuffer			: FB_TcpBuffer;				(* Custom buffer made to store recived data in bytes *)
+	fbSendBuffer			: FB_TcpBuffer;				(* Custom buffer made to store send data in bytes *)
+	
+	(* Function blocks *)
+	fbSocketClose 			: FB_SocketClose;			(* FB to close current connection*)
+	fbSocketSend			: FB_SocketSend;			(* FB to send buffered data *)
+	fbSocketRecive			: FB_SocketReceive;			(* FB to recive data*)
+	
+	(* Tc3 EventLogger - messages *)
+	fbAlarmConnectionLost 		: FB_TcAlarm;			(*  *)
+	fbAlarmClosingSocket		: FB_TcAlarm;			(*  *)
+	fbAlarmCreatingListener	 	: FB_TcAlarm;			(*  *)
+	fbAlarmCreatingClient		: FB_TcAlarm;			(*  *)
+	fbAlarmClosingConnection	: FB_TcAlarm;			(*  *)
+	fbAlarmWaitingForClient		: FB_TcAlarm;			(*  *)	
+
+	bResetConfirmation 		: BOOL;						(*  *)
+	
+	rtError						: R_TRIG; 				(* Rising edge trigger for function block error *)
+	
+END_VAR
+(*
+Version history:
+
++-------------+------------+----------------+----------+-------------------------------------------------------------------------------------+
+|Date         | Version    | created under  | Author   | Remark                                                                              |
++=============+============+================+==========+=====================================================================================+
+|2022-01      | 1.0.0.0    | V3.1.4024.22   | ADBO     | Function block created                                                              |
++-------------+------------+----------------+----------+-------------------------------------------------------------------------------------+
+|2022-02      | 1.1.0.0    | V3.1.4024.22   | ADBO     | - Added fixes to init failure reset (MS_Aborting)                                   |
+|             |            |                |          | - Changed aproach in executing all FB's ( Deleted checking error before executing ) |
++-------------+------------+----------------+----------+-------------------------------------------------------------------------------------+
+
+*)]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[(* First cycle procedure *)
+IF bFirstCycle THEN
+	bFirstCycle := FALSE;
+	
+	fbAlarmConnectionLost.CreateEx( stEventEntry := TC_EVENTS.ShellTcpIpDeviceEventClass.ConnectionLost, 
+									bWithConfirmation := 1,
+									ipSourceInfo := 0);
+									
+	fbAlarmClosingSocket.CreateEx( stEventEntry := TC_EVENTS.ShellTcpIpDeviceEventClass.ClosingSocket, 
+									bWithConfirmation := 1,
+									ipSourceInfo := 0);			
+									
+	fbAlarmCreatingListener.CreateEx( stEventEntry := TC_EVENTS.ShellTcpIpDeviceEventClass.CreatingListener, 
+									bWithConfirmation := 1,
+									ipSourceInfo := 0);			
+									
+	fbAlarmCreatingClient.CreateEx( stEventEntry := TC_EVENTS.ShellTcpIpDeviceEventClass.CreatingClient, 
+									bWithConfirmation := 1,
+									ipSourceInfo := 0);		
+									
+	fbAlarmClosingConnection.CreateEx( stEventEntry := TC_EVENTS.ShellTcpIpDeviceEventClass.ClosingConnection, 
+									bWithConfirmation := 1,
+									ipSourceInfo := 0);		
+	
+	fbAlarmWaitingForClient.CreateEx( stEventEntry := TC_EVENTS.ShellTcpIpDeviceEventClass.WaitingForClient, 
+									bWithConfirmation := 1,
+									ipSourceInfo := 0);		
+									
+END_IF
+
+(* Report errors that occur *)
+rtError(CLK:=bError);
+
+IF rtError.Q THEN 
+	fbMachineLogger.MR_AddLogs(FUN_MergeStrings5(sName, ' : Error occured (error ID: ', UDINT_TO_STRING(iErrorID), ')', ''));
+
+END_IF
+
+(* Execute state machine *)
+StateMachine();
+
+(* Active status bit control*)
+bActive := eTcpDeviceState = TCPIP_DEVICE_RUNNING OR eTcpDeviceState = TCPIP_DEVICE_ABORTING;]]></ST>
+    </Implementation>
+    <Folder Name="FirstCycle" Id="{7eff75cf-dec3-4574-b08c-ffb52a28069a}" />
+    <Folder Name="Properties" Id="{8975d4b2-c687-46af-878d-bae4ff3771a0}">
+      <Folder Name="Parameters" Id="{13a0642e-f390-4b84-8334-9bc7c645a80c}" />
+      <Folder Name="Status" Id="{e04cbff5-5c7c-45fc-963f-d2510b8a04bf}" />
+    </Folder>
+    <Folder Name="Requests" Id="{cc2887aa-5d0d-4665-922e-a60842512264}" />
+    <Folder Name="StateMachine" Id="{ec7440ab-6a5c-4415-b0b1-15e777dfb789}" />
+    <Property Name="Active" Id="{bb309e7c-1a92-4b3d-b76a-6c88b3674050}" FolderPath="Properties\Status\">
+      <Declaration><![CDATA[PROPERTY Active : REFERENCE TO BOOL]]></Declaration>
+      <Get Name="Get" Id="{0cecf4b4-9efa-4f76-8727-ff86884fe6ac}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[Active REF= bActive;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Property Name="AmsNetId" Id="{53730561-6c83-48b7-8fc8-6c710f1ea9f8}" FolderPath="Properties\Parameters\">
+      <Declaration><![CDATA[PROPERTY AmsNetId : T_IPv4Addr]]></Declaration>
+      <Get Name="Get" Id="{821e0492-b2d0-420a-91b4-60d926d7fbfa}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[AmsNetId := sAmsNetID;]]></ST>
+        </Implementation>
+      </Get>
+      <Set Name="Set" Id="{08859e29-d0fe-4541-857a-e44d3ff66724}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[sAmsNetID := AmsNetId;]]></ST>
+        </Implementation>
+      </Set>
+    </Property>
+    <Property Name="Error" Id="{e2e9e3da-6cc1-46d8-8bd3-85109b4de718}" FolderPath="Properties\Status\">
+      <Declaration><![CDATA[PROPERTY Error : REFERENCE TO BOOL]]></Declaration>
+      <Get Name="Get" Id="{241e8ef3-fad4-4016-824d-0e25ac222c6b}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[Error REF= bError;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Property Name="ErrorID" Id="{7628db40-9841-4a79-ad50-42111b354f82}" FolderPath="Properties\Status\">
+      <Declaration><![CDATA[PROPERTY ErrorID : REFERENCE TO UDINT]]></Declaration>
+      <Get Name="Get" Id="{f8de3d5d-7aaf-4505-8372-8fb787a5a70e}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[ErrorID REF= iErrorID;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Property Name="Host" Id="{93980d7f-e516-4334-bafa-16db33113146}" FolderPath="Properties\Parameters\">
+      <Declaration><![CDATA[PROPERTY Host : T_IPv4Addr]]></Declaration>
+      <Get Name="Get" Id="{47c47965-1edd-43dd-adbc-36e660c0cf26}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[Host := sHost;]]></ST>
+        </Implementation>
+      </Get>
+      <Set Name="Set" Id="{abb4facb-6ed1-450f-8eb7-8631e84e82fb}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[sHost := Host;]]></ST>
+        </Implementation>
+      </Set>
+    </Property>
+    <Property Name="LastRecivedMessage" Id="{f34f60a3-1702-4057-b400-28f94d111551}" FolderPath="Properties\Status\">
+      <Declaration><![CDATA[PROPERTY LastRecivedMessage : ST_TcpBufferData]]></Declaration>
+      <Get Name="Get" Id="{dff019d5-2e85-4ec8-87d2-a77cff870263}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[(*
+stLastRecivedMessageTemp := fbReceiveBuffer.MR_GetLast();
+LastRecivedMessage REF= stLastRecivedMessageTemp;
+*)
+LastRecivedMessage := fbReceiveBuffer.MR_GetLast();]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Method Name="MR_Abort" Id="{7ba248d6-ec96-4fde-b758-3d8b0e88fc01}" FolderPath="Requests\">
+      <Declaration><![CDATA[(* Abort connection and go back to uninitialized state *)
+METHOD MR_Abort : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF eTcpDeviceState > TCPIP_DEVICE_UNINITIALIZED THEN
+	bAbort := TRUE;
+	bInit := FALSE;
+	bInitFailed := eTcpDeviceState = TCPIP_DEVICE_INITIALIZING;	
+	eTcpDeviceState := TCPIP_DEVICE_ABORTING;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : abort requested'));
+	
+ELSIF eTcpDeviceState = TCPIP_DEVICE_UNINITIALIZED THEN
+	bAbort := FALSE;
+	bInitFailed := FALSE;
+	MR_Abort := TRUE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : abort done'));
+	
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_AppendToSendBuffer" Id="{34fba2ac-9555-407a-ae0c-3f6c5ff2444a}" FolderPath="Requests\">
+      <Declaration><![CDATA[(* Add data to send buffer *)
+METHOD MR_AppendToSendBuffer : BOOL
+VAR_INPUT
+	stData : ST_TcpBufferData;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF eTcpDeviceState = TCPIP_DEVICE_RUNNING THEN
+	MR_AppendToSendBuffer := fbSendBuffer.MR_Append(stData);
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_ClearAllBuffers" Id="{3393f9e0-6d81-465d-9fbf-69bb26ed21a9}" FolderPath="Requests\">
+      <Declaration><![CDATA[(* Clear intearnal send and recive buffer *)
+METHOD MR_ClearAllBuffers : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[MR_ClearAllBuffers := fbSendBuffer.MR_Clear() AND fbReceiveBuffer.MR_Clear();]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_ClearReciveBuffer" Id="{333dc0fb-7ec9-4a7a-8f12-aa9f97fc6270}" FolderPath="Requests\">
+      <Declaration><![CDATA[METHOD MR_ClearReciveBuffer : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[MR_ClearReciveBuffer := fbReceiveBuffer.MR_Clear();]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_ClearSendBuffer" Id="{5e4c59ba-b511-4d60-a3e4-fd04d1b52e82}" FolderPath="Requests\">
+      <Declaration><![CDATA[METHOD MR_ClearSendBuffer : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[MR_ClearSendBuffer := fbSendBuffer.MR_Clear();]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_FirstCycle" Id="{3a6145a3-e99b-43ad-ad8b-04577cbda6ad}" FolderPath="FirstCycle\">
+      <Declaration><![CDATA[(* Set the initial parameters of TCP/IP device *)
+METHOD MR_FirstCycle : BOOL
+VAR_INPUT
+	sName 		: STRING;		(* TCP/IP Device name for identyfication *)
+	sHost		: T_IPv4Addr;	(* TCP/IP-Client: IP address of remote server/ TCP/IP-Server: local server IP address *)
+	sAmsNetID	: T_AmsNetID;	(* TCP/IP-Client: AMS network address of remote server/ TCP/IP-Server: local server ams network address *)
+	iPort		: UINT;			(* TCP/IP-Client: Port of remote server/ TCP/IP-Server: local server port *)
+	tTimeout	: TIME;			(* Connection timeout *)
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[THIS^.sName 	:= sName;
+THIS^.sHost 	:= sHost;
+THIS^.sAmsNetID := sAmsNetID;
+THIS^.iPort 	:= iPort;
+THIS^.tTimeout 	:= tTimeout;
+
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_Init" Id="{ecd3963c-8171-4816-a3bf-a3d7a6ddb575}" FolderPath="Requests\">
+      <Declaration><![CDATA[(* Start initialization of TCP/IP device *)
+METHOD MR_Init : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF eTcpDeviceState = TCPIP_DEVICE_UNINITIALIZED THEN
+	bInit := TRUE;
+	eTcpDeviceState := TCPIP_DEVICE_INITIALIZING;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : initialization requested'));
+		
+ELSIF eTcpDeviceState = TCPIP_DEVICE_RUNNING THEN
+	bInit := FALSE;
+	MR_Init := TRUE;
+	fbMachineLogger.MR_AddLogs(CONCAT(sName,' : initialization done'));	
+	
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_Aborting" Id="{6212075a-c202-4f6a-a877-09d0e31a77da}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[(* TCP/IP device is reseting to uninitialized mode*)
+METHOD PROTECTED MS_Aborting
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[(* Close current conncetion socket *)
+fbSocketClose(	sSrvNetId 	:= sAmsNetID,
+				hSocket		:= stSocketToClose,
+				bExecute	:= TRUE,
+				tTimeout	:= DEFAULT_ADS_TIMEOUT);
+	
+(* Socket closed *)				
+IF NOT fbSocketClose.bBusy AND NOT fbSocketClose.bError THEN
+	eTcpDeviceState := TCPIP_DEVICE_UNINITIALIZED;
+	
+(* Error occured while closing the socket *)
+ELSIF fbSocketClose.bError THEN
+	bError := TRUE;
+	iErrorID := fbSocketClose.nErrId;
+	fbAlarmClosingSocket.ipArguments.Clear().AddUDInt(iErrorID);	
+	fbAlarmClosingSocket.Raise(0);
+	
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_Initializing" Id="{89d66d1b-bb4e-4da4-848e-06824cf0638d}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[(* TCP/IP device is preparing to work *)
+METHOD PROTECTED MS_Initializing
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[eTcpDeviceSendState := TCPIP_DEVICE_DATA_EXCHANGE_GET_SEND_DATA;
+eTcpDeviceReciveState := TCPIP_DEVICE_DATA_EXCHANGE_GET_RECIVED_DATA;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_ReadyInitialized" Id="{a6778436-f729-45cc-b01a-3c1a76009ebd}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[(* TCP/IP device is ready to work *)
+METHOD PROTECTED MS_ReadyInitialized
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[(* Skip to device running state *)
+eTcpDeviceState := TCPIP_DEVICE_RUNNING;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_Running" Id="{1634eae9-4b35-4fe9-a774-577b91bc289a}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[(* TCP/IP device is working in the network *)
+METHOD PROTECTED MS_Running
+VAR_INST
+	stDataToSend		:	ST_TcpBufferData;			(* Data to send structure *)
+	stReceivedData		:	ST_TcpBufferData;			(* Recived data structure *)
+	bRepeatLoop			:	BOOL;						(* Loop control bit *)
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF NOT bConnectionLostError THEN
+	(* Send data loop *)
+	REPEAT
+		bRepeatLoop := FALSE;
+	
+		CASE eTcpDeviceSendState OF
+			(*Get data to send from buffer *)
+			TCPIP_DEVICE_DATA_EXCHANGE_GET_SEND_DATA:
+				stDataToSend := fbSendBuffer.MR_GetNextAndRemove();
+				IF stDataToSend.iLength > 0 THEN
+					eTcpDeviceSendState := TCPIP_DEVICE_DATA_EXCHANGE_SEND;
+					bRepeatLoop := TRUE;
+					
+				END_IF
+			
+			TCPIP_DEVICE_DATA_EXCHANGE_SEND:
+				(*Send buffered data to host*)
+				fbSocketSend(	sSrvNetID 	:= sAmsNetID,
+								hSocket		:= stHSocket,
+								cbLen		:= stDataToSend.iLength,
+								pSrc		:= ADR(stDataToSend.arrData),
+								bExecute	:= TRUE);
+				
+				eTcpDeviceSendState := TCPIP_DEVICE_DATA_EXCHANGE_SEND_DONE;
+				bRepeatLoop := TRUE;
+				
+			TCPIP_DEVICE_DATA_EXCHANGE_SEND_DONE:	
+				(* Sending done go get next data row *)			
+				IF NOT fbSocketSend.bBusy AND NOT fbSocketSend.bError THEN
+					fbSocketSend(bExecute := FALSE );
+					eTcpDeviceSendState := TCPIP_DEVICE_DATA_EXCHANGE_GET_SEND_DATA;
+					bRepeatLoop := TRUE;
+						
+				(* Sending in progress *)
+				ELSIF fbSocketSend.bBusy AND NOT fbSocketSend.bError THEN
+					eTcpDeviceSendState := TCPIP_DEVICE_DATA_EXCHANGE_SEND;
+					
+				(* Error occured while sending the data *)
+				ELSIF fbSocketSend.bError THEN
+					bError := TRUE;
+					iErrorID := fbSocketSend.nErrId;
+					bConnectionLostError := TRUE;
+					fbAlarmConnectionLost.ipArguments.Clear().AddUDInt(iErrorID);	
+					fbAlarmConnectionLost.Raise(0);
+					
+				END_IF
+		END_CASE
+	UNTIL 
+		NOT bRepeatLoop
+	END_REPEAT
+ELSE
+	fbSocketSend( bExecute := FALSE);
+	
+END_IF
+
+IF NOT bConnectionLostError THEN
+	(* Recive data loop *)
+	REPEAT
+		bRepeatLoop := FALSE;
+		
+		CASE eTcpDeviceReciveState OF
+			TCPIP_DEVICE_DATA_EXCHANGE_GET_RECIVED_DATA:
+				fbSocketRecive( 	sSrvNetId	:=	sAmsNetID,
+									hSocket		:=	stHSocket,
+									cbLen		:=	SIZEOF(stReceivedData.arrData),
+									pDest		:=	ADR(stReceivedData.arrData),
+									bExecute	:=	TRUE);
+			
+			eTcpDeviceReciveState := TCPIP_DEVICE_DATA_EXCHANGE_RECIVE_DONE;
+			bRepeatLoop := TRUE;
+			
+			TCPIP_DEVICE_DATA_EXCHANGE_RECIVE_DONE:		
+				IF NOT fbSocketRecive.bBusy AND NOT fbSocketRecive.bError THEN
+					stReceivedData.iLength	:=	fbSocketRecive.nRecBytes;
+					fbSocketRecive(	bExecute := FALSE );
+					eTcpDeviceReciveState := TCPIP_DEVICE_DATA_EXCHANGE_WRITE_TO_BUFFER;
+					bRepeatLoop := TRUE;
+					
+				ELSIF fbSocketRecive.bBusy AND NOT fbSocketRecive.bError THEN
+					eTcpDeviceReciveState := TCPIP_DEVICE_DATA_EXCHANGE_GET_RECIVED_DATA;
+					bRepeatLoop := FALSE;		
+	
+				ELSIF fbSocketRecive.bError THEN
+					bError := TRUE;
+					iErrorID := fbSocketRecive.nErrId;
+					bConnectionLostError := TRUE;
+					fbAlarmConnectionLost.ipArguments.Clear().AddUDInt(iErrorID);
+					fbAlarmConnectionLost.Raise(0);
+					eTcpDeviceReciveState := TCPIP_DEVICE_DATA_EXCHANGE_GET_RECIVED_DATA;
+					
+				END_IF
+			
+			TCPIP_DEVICE_DATA_EXCHANGE_WRITE_TO_BUFFER: // write data to buffer
+				IF stReceivedData.iLength > 0 THEN
+					fbReceiveBuffer.MR_Append(stReceivedData);
+					
+				END_IF
+					eTcpDeviceReciveState := TCPIP_DEVICE_DATA_EXCHANGE_GET_RECIVED_DATA;
+					bRepeatLoop := TRUE;
+			
+		END_CASE
+	UNTIL 
+		NOT bRepeatLoop
+		
+	END_REPEAT
+ELSE
+	fbSocketRecive(bExecute := FALSE);	
+	
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_Uninitialized" Id="{c5951152-c41f-4c41-ad16-241958d57cb9}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[(* TCP/IP device is not ready to work *)
+METHOD PROTECTED MS_Uninitialized
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[(* Reseting common function blocks *)
+fbSocketSend( bExecute := FALSE);
+fbSocketRecive( bExecute := FALSE);
+fbSocketClose( bExecute := FALSE);
+
+(* Clearing buffers *)
+fbReceiveBuffer.MR_Clear();
+fbSendBuffer.MR_Clear();
+
+(* Reseting flags and error codes *)
+bActive 				:= FALSE;
+bBusy 					:= FALSE;
+bError 					:= FALSE;
+bInitFailed				:= FALSE;
+bConnectionLostError	:= FALSE;
+iErrorID 				:= 0;
+
+(* Confirming and resetting alarms *)
+fbAlarmConnectionLost.Confirm( nTimeStamp := 0);
+fbAlarmClosingSocket.Confirm( nTimeStamp := 0);
+fbAlarmCreatingListener.Confirm( nTimeStamp := 0);
+fbAlarmCreatingClient.Confirm( nTimeStamp := 0);
+fbAlarmClosingConnection.Confirm( nTimeStamp := 0);
+fbAlarmWaitingForClient.Confirm( nTimeStamp := 0);
+
+fbAlarmConnectionLost.Clear( nTimeStamp := 0, bResetConfirmation := bResetConfirmation); 
+fbAlarmClosingSocket.Clear( nTimeStamp := 0, bResetConfirmation := bResetConfirmation); 
+fbAlarmCreatingListener.Clear( nTimeStamp := 0, bResetConfirmation := bResetConfirmation); 
+fbAlarmCreatingClient.Clear( nTimeStamp := 0, bResetConfirmation := bResetConfirmation); 
+fbAlarmClosingConnection.Clear( nTimeStamp := 0, bResetConfirmation := bResetConfirmation); 
+fbAlarmWaitingForClient.Clear( nTimeStamp := 0, bResetConfirmation := bResetConfirmation); 
+
+]]></ST>
+      </Implementation>
+    </Method>
+    <Property Name="NextRecivedMessage" Id="{622ccea8-ef5d-4cc2-a482-5f690a177cbe}" FolderPath="Properties\Status\">
+      <Declaration><![CDATA[PROPERTY NextRecivedMessage : ST_TcpBufferData]]></Declaration>
+      <Get Name="Get" Id="{c4588374-8343-4562-bcfd-28dd9b2872a4}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[(*
+stNextRecivedMessageTemp := fbReceiveBuffer.MR_GetNextAndRemove();
+NextRecivedMessage REF= stNextRecivedMessageTemp;
+*)
+NextRecivedMessage := fbReceiveBuffer.MR_GetNextAndRemove();]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Property Name="Port" Id="{dc8452c1-285d-4cd1-80ee-0df28245c3a3}" FolderPath="Properties\Parameters\">
+      <Declaration><![CDATA[PROPERTY Port : UINT]]></Declaration>
+      <Get Name="Get" Id="{6f763cb4-a3ec-46ae-9ec8-cb7807317399}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[Port := iPort;]]></ST>
+        </Implementation>
+      </Get>
+      <Set Name="Set" Id="{d14e038b-ffb4-4f43-bcaf-6e1f6a8c83a0}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[iPort := Port;]]></ST>
+        </Implementation>
+      </Set>
+    </Property>
+    <Property Name="State" Id="{18605757-8927-4b58-ae48-5fbc7a9f9383}" FolderPath="Properties\Status\">
+      <Declaration><![CDATA[PROPERTY State : REFERENCE TO E_TcpIpDeviceState]]></Declaration>
+      <Get Name="Get" Id="{783b9975-0483-4288-9277-2625a8d84f47}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[State REF= eTcpDeviceState;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Method Name="StateMachine" Id="{a8e3ca25-5505-480f-98c6-ec1a4dde14f5}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[(* Standard state machine call for TCP/IP device *)
+METHOD PROTECTED StateMachine]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[CASE eTcpDeviceState OF
+	(* TCP/IP device is not ready to work *)
+	TCPIP_DEVICE_UNINITIALIZED:
+		MS_Uninitialized();
+	
+	(* TCP/IP device is preparing to work *)	
+	TCPIP_DEVICE_INITIALIZING:
+		MS_Initializing();
+	
+	(* TCP/IP device is ready to work *)	
+	TCPIP_DEVICE_READY_INITIALIZED:
+		MS_ReadyInitialized();
+		
+	(* TCP/IP device is working in the network *)
+	TCPIP_DEVICE_RUNNING:
+		MS_Running();
+	
+	(* TCP/IP device is reseting to uninitialized mode*)	
+	TCPIP_DEVICE_ABORTING:
+		MS_Aborting();
+		
+END_CASE]]></ST>
+      </Implementation>
+    </Method>
+    <Property Name="Timeout" Id="{ccf03617-9599-4f01-a23d-24298e240bea}" FolderPath="Properties\Status\">
+      <Declaration><![CDATA[PROPERTY Timeout : TIME]]></Declaration>
+      <Get Name="Get" Id="{f9b60a7a-4cb8-45f8-ba93-27d6e9b777b2}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[Timeout := tTimeout;]]></ST>
+        </Implementation>
+      </Get>
+      <Set Name="Set" Id="{aa6f42ae-98ff-4f16-8d8c-5fd0f6d3586a}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[tTimeout := Timeout;]]></ST>
+        </Implementation>
+      </Set>
+    </Property>
+    <LineIds Name="FB_TcpDevice">
+      <LineId Id="3" Count="41" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpDevice.Active.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpDevice.AmsNetId.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpDevice.AmsNetId.Set">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpDevice.Error.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpDevice.ErrorID.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpDevice.Host.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpDevice.Host.Set">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpDevice.LastRecivedMessage.Get">
+      <LineId Id="3" Count="3" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpDevice.MR_Abort">
+      <LineId Id="3" Count="13" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpDevice.MR_AppendToSendBuffer">
+      <LineId Id="3" Count="2" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpDevice.MR_ClearAllBuffers">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpDevice.MR_ClearReciveBuffer">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpDevice.MR_ClearSendBuffer">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpDevice.MR_FirstCycle">
+      <LineId Id="3" Count="5" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpDevice.MR_Init">
+      <LineId Id="3" Count="9" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpDevice.MS_Aborting">
+      <LineId Id="3" Count="16" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpDevice.MS_Initializing">
+      <LineId Id="3" Count="0" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpDevice.MS_ReadyInitialized">
+      <LineId Id="3" Count="0" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpDevice.MS_Running">
+      <LineId Id="3" Count="107" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpDevice.MS_Uninitialized">
+      <LineId Id="3" Count="31" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpDevice.NextRecivedMessage.Get">
+      <LineId Id="3" Count="3" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpDevice.Port.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpDevice.Port.Set">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpDevice.State.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpDevice.StateMachine">
+      <LineId Id="3" Count="20" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpDevice.Timeout.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpDevice.Timeout.Set">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="E_CognexCameraGetValuesStatus" Id="{114802b8-8f94-452b-ad4e-ddfe2698cc84}">
+    <Declaration><![CDATA[{attribute 'strict'}
+TYPE E_CognexCameraGetValuesStatus :
+(
+	WAITING_FOR_STATUS_CODE						:= 2,
+	THE_COMMAND_WAS_EXECUTED_SUCCESSFULLY		:= 1,
+	UNRECOGNIZED_COMMAND 						:= 0,
+	THE_SYMBOLIC_TAG_IS_INVALID					:= -1,
+	THE_COMMAND_COULD_NOT_BE_EXECUTED 			:= -2,
+	ONE_OR_MORE_VALUE_IS_INVALID				:= -3
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

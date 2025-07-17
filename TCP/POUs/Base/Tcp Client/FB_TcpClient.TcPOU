@@ -1,0 +1,92 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_TcpClient" Id="{50810698-82d6-42eb-b406-1fc109fbf32e}" SpecialFunc="None">
+    <Declaration><![CDATA[(* 
+| :Description: This function block represent basic TCP/IP client. 
+| Use MR_Init to connect to the server. 
+| To send data to server use MR_AppendToSendBuffer, use FUN_StringToTcpBufferData to convert string into structure of bytes.
+| If the lenght of LastRecivedMessage is bigger than 0 then you recived message from server, use FUN_TcpBufferDataToString to copy it to string message.
+| To close the connection use MR_Abort.
+*)
+FUNCTION_BLOCK FB_TcpClient EXTENDS FB_TcpDevice
+VAR		
+	(* Function blocks *)
+	fbSocketConnect : FB_SocketConnect;		(* FB used to connect the client to remote server *)
+END_VAR
+(*
+Version history:
+
++-------------+------------+----------------+----------+-------------------------------------------------------------------------------------+
+|Date         | Version    | created under  | Author   | Remark                                                                              |
++=============+============+================+==========+=====================================================================================+
+|2022-01      | 1.0.0.0    | V3.1.4024.22   | ADBO     | Function block created                                                              |
++-------------+------------+----------------+----------+-------------------------------------------------------------------------------------+
+|2022-02      | 1.1.0.0    | V3.1.4024.22   | ADBO     | - Added fixes to init failure reset (MS_Aborting)                                   |
+|             |            |                |          | - Changed aproach in executing all FB's ( Deleted checking error before executing ) |
++-------------+------------+----------------+----------+-------------------------------------------------------------------------------------+
+
+*)]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[SUPER^();]]></ST>
+    </Implementation>
+    <Folder Name="StateMachine" Id="{dde683d4-89d4-443b-82d3-86337c59f2e7}" />
+    <Method Name="MS_Aborting" Id="{693ead63-edb0-47c7-899d-d767843794b9}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[METHOD PROTECTED MS_Aborting]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF bInitFailed THEN
+	fbSocketConnect( bExecute := FALSE);
+	eTcpDeviceState := TCPIP_DEVICE_UNINITIALIZED;
+	
+ELSE
+	stSocketToClose := stHSocket;
+	SUPER^.MS_Aborting();
+	
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MS_Initializing" Id="{51afae26-1363-48f6-957b-4a5b997ef07d}" FolderPath="StateMachine\">
+      <Declaration><![CDATA[(* TCP/IP client is preparing to work *)
+METHOD PROTECTED MS_Initializing
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[SUPER^.MS_Initializing();
+
+(* Create connection socket to remote host *)
+fbSocketConnect(	sSrvNetId	:= sAmsNetID,
+					sRemoteHost := sHost,
+					nRemotePort := iPort,
+					bExecute 	:= TRUE,
+					tTimeout	:= tTimeout,
+					hSocket		=> stHSocket);
+						
+(* Socket created *)
+IF NOT fbSocketConnect.bBusy AND NOT fbSocketConnect.bError THEN
+	fbSocketConnect( bExecute := FALSE);
+	eTcpDeviceState := TCPIP_DEVICE_READY_INITIALIZED;
+	
+(*Error occured while creating client socket *)
+ELSIF fbSocketConnect.bError THEN
+	bError := TRUE;
+	iErrorID := fbSocketConnect.nErrId;
+	fbAlarmCreatingClient.ipArguments.Clear().AddUDInt(iErrorID);	
+	fbAlarmCreatingClient.Raise(0);
+		
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_TcpClient">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpClient.MS_Aborting">
+      <LineId Id="3" Count="6" />
+      <LineId Id="11" Count="0" />
+      <LineId Id="10" Count="0" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpClient.MS_Initializing">
+      <LineId Id="3" Count="21" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

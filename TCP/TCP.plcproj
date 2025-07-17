@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <FileVersion>1.0.0.0</FileVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{329b5714-b3a0-4e2d-a1b5-d2898652f5e3}</ProjectGuid>
+    <SubObjectsSortedByName>True</SubObjectsSortedByName>
+    <DownloadApplicationInfo>true</DownloadApplicationInfo>
+    <WriteProductVersion>true</WriteProductVersion>
+    <GenerateTpy>false</GenerateTpy>
+    <Name>TCP</Name>
+    <ProgramVersion>3.1.4024.0</ProgramVersion>
+    <Application>{0d103a76-7add-4f64-8dfd-a624d5423aab}</Application>
+    <TypeSystem>{ad22ec7d-c50b-40a1-a6e0-ec1474a49708}</TypeSystem>
+    <Implicit_Task_Info>{14a91df3-7b26-4bf1-aa41-b4510850c15e}</Implicit_Task_Info>
+    <Implicit_KindOfTask>{3e8b4e67-ef75-4160-989b-51f07fbcdf4e}</Implicit_KindOfTask>
+    <Implicit_Jitter_Distribution>{fc5bb79d-ec8a-4eb4-807f-a973a557fa11}</Implicit_Jitter_Distribution>
+    <LibraryReferences>{b821bcef-3318-4fc0-a171-e6cbdbf6e01e}</LibraryReferences>
+    <Company>NewEngineer</Company>
+    <Released>false</Released>
+    <ProjectVersion>0.0.0.1</ProjectVersion>
+    <Title>Tc_TcpIpDevices</Title>
+    <DefaultNamespace>Tc_TcpIpDevices</DefaultNamespace>
+    <Placeholder>Tc_TcpIpDevices</Placeholder>
+    <Author>https://github.com/phucpha</Author>
+    <Description>TC_TcpIpDevices use for Device that communicate by TCPIP.</Description>
+    <DocFormat>reStructuredText</DocFormat>
+    <LibraryCategories>
+      <LibraryCategory>
+        <Id>{34b615cd-45ba-4d29-985a-190ea3e88038}</Id>
+        <Version>1.0.0.0</Version>
+        <DefaultName>Devices</DefaultName>
+      </LibraryCategory>
+    </LibraryCategories>
+    <SelectedLibraryCategories>
+      <Id>{34b615cd-45ba-4d29-985a-190ea3e88038}</Id>
+    </SelectedLibraryCategories>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="DUTs\Cognex\E_CognexCameraGetConnectionStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Cognex\E_CognexCameraGetExprStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Cognex\E_CognexCameraGetFileListStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Cognex\E_CognexCameraGetFileStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Cognex\E_CognexCameraGetJobStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Cognex\E_CognexCameraGetOnlineStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Cognex\E_CognexCameraGetPositionState.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Cognex\E_CognexCameraGetPositionStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Cognex\E_CognexCameraGetValueEasyBuilderStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Cognex\E_CognexCameraGetValueSpreadsheetStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Cognex\E_CognexCameraGetValuesState.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Cognex\E_CognexCameraGetValuesStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Cognex\E_CognexCameraGetValueStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Cognex\E_CognexCameraImageTriggerStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Cognex\E_CognexCameraInitState.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Cognex\E_CognexCameraLoadFileStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Cognex\E_CognexCameraMethodState.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Cognex\E_CognexCameraPutLiveStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Cognex\E_CognexCameraPutPortnumStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Cognex\E_CognexCameraPutTimeoutStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Cognex\E_CognexCameraPutUpdateStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Cognex\E_CognexCameraPutWatchStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Cognex\E_CognexCameraResetSystemStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Cognex\E_CognexCameraSetJobStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Cognex\E_CognexCameraSetOnlineStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Cognex\E_CognexCameraState.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Cognex\E_CognexCameraStoreFileStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\TcpIp\E_TcpIpDeviceState.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\TcpIp\E_TcpIpDeviceStateRecive.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\TcpIp\E_TcpIpDeviceStateSend.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\TcpIp\E_TcpIpServerStateRunning.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\TcpIp\ST_TcpBufferData.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="FC\FUN_StringToTcpBufferData.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="FC\FUN_TcpBufferDataToString.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="PlcTask.TcTTO">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Base\Tcp Buffer\FB_TcpBuffer.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Base\Tcp Client\FB_TcpClient.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Base\Tcp Device\FB_TcpDevice.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Base\Tcp Device\I_TcpDevice.TcIO">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Base\Tcp Server\FB_TcpServer.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Cognex\FB_CognexCamera.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Cognex\I_CognexCamera.TcIO">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Version\Global_Version.TcGVL">
+      <SubType>Code</SubType>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="DUTs" />
+    <Folder Include="DUTs\Cognex" />
+    <Folder Include="DUTs\TcpIp" />
+    <Folder Include="GVLs" />
+    <Folder Include="FC" />
+    <Folder Include="POUs\Base\Tcp Buffer" />
+    <Folder Include="POUs\Base\Tcp Client" />
+    <Folder Include="POUs\Base\Tcp Device" />
+    <Folder Include="POUs\Base\Tcp Server" />
+    <Folder Include="POUs\Cognex" />
+    <Folder Include="POUs\Base" />
+    <Folder Include="Version" />
+    <Folder Include="VISUs" />
+    <Folder Include="POUs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PlaceholderReference Include="Tc2_Standard">
+      <DefaultResolution>Tc2_Standard, * (Beckhoff Automation GmbH)</DefaultResolution>
+      <Namespace>Tc2_Standard</Namespace>
+    </PlaceholderReference>
+    <PlaceholderReference Include="Tc2_System">
+      <DefaultResolution>Tc2_System, * (Beckhoff Automation GmbH)</DefaultResolution>
+      <Namespace>Tc2_System</Namespace>
+    </PlaceholderReference>
+    <PlaceholderReference Include="Tc2_TcpIp">
+      <DefaultResolution>Tc2_TcpIp, * (Beckhoff Automation GmbH)</DefaultResolution>
+      <Namespace>Tc2_TcpIp</Namespace>
+    </PlaceholderReference>
+    <PlaceholderReference Include="Tc3_EventLogger">
+      <DefaultResolution>Tc3_EventLogger, * (Beckhoff Automation GmbH)</DefaultResolution>
+      <Namespace>Tc3_EventLogger</Namespace>
+    </PlaceholderReference>
+    <PlaceholderReference Include="Tc3_Module">
+      <DefaultResolution>Tc3_Module, * (Beckhoff Automation GmbH)</DefaultResolution>
+      <Namespace>Tc3_Module</Namespace>
+    </PlaceholderReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="TCP.tmc">
+      <SubType>Content</SubType>
+    </None>
+  </ItemGroup>
+  <ProjectExtensions>
+    <PlcProjectOptions>
+      <XmlArchive>
+        <Data>
+          <o xml:space="preserve" t="OptionKey">
+      <v n="Name">"&lt;ProjectRoot&gt;"</v>
+      <d n="SubKeys" t="Hashtable" />
+      <d n="Values" t="Hashtable" />
+    </o>
+        </Data>
+        <TypeList>
+          <Type n="Hashtable">System.Collections.Hashtable</Type>
+          <Type n="OptionKey">{54dd0eac-a6d8-46f2-8c27-2f43c7e49861}</Type>
+          <Type n="String">System.String</Type>
+        </TypeList>
+      </XmlArchive>
+    </PlcProjectOptions>
+  </ProjectExtensions>
+</Project>

@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="E_CognexCameraSetJobStatus" Id="{70ec14d9-c809-45d9-9c60-fe8c51250487}">
+    <Declaration><![CDATA[{attribute 'strict'}
+TYPE E_CognexCameraSetJobStatus :
+(
+	WAITING_FOR_STATUS_CODE														:= 2,	
+	THE_COMMAND_WAS_EXECUTED_SUCCESSFULLY										:= 1,
+	UNRECOGNIZED_COMMAND 														:= 0,
+	THE_ID_IS_LESS_THAN_0_OR_IS_NOT_AN_INTEGER									:= -1,
+	THE_JOB_FAILED_TO_LOAD_THE_SENSOR_IS_ONLINE_OR_THE_FILE_WAS_NOT_FOUND		:= -2,
+	THE_IN_SIGHT_SENSOR_IS_OUT_OF_MEMORY										:= -4,
+	USER_DOES_NOT_HAVE_FULL_ACCESS												:= -6
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

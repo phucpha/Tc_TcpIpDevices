@@ -1,0 +1,136 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_TcpBuffer" Id="{289bbe3c-554e-4410-9ec9-c89a593fd113}" SpecialFunc="None">
+    <Declaration><![CDATA[(* 
+:Description: This function block represent basic TCP/IP data buffer. It is used by all TCP devices to store data to send and recive from other devices.
+*)
+FUNCTION_BLOCK FB_TcpBuffer
+
+VAR CONSTANT
+	iLENGTH_OF_MESSAGE		: UDINT := 8192;
+	iMAX_NUMBER_OF_MESSAGES	: UDINT := 10;
+END_VAR
+
+VAR
+	arrBufferMessage	: ARRAY[0..iMAX_NUMBER_OF_MESSAGES] OF ST_TcpBufferData;
+	{attribute 'hide'}
+	iFirstMessageIndex	: UDINT;
+	{attributee 'hide'}
+	iLastMessageIndex	: UDINT;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[]]></ST>
+    </Implementation>
+    <Folder Name="Requests" Id="{69451874-ffae-4a28-9201-18fd923dc5f2}" />
+    <Method Name="MR_Append" Id="{5b397181-f15d-4d43-96e8-04694368c5c1}" FolderPath="Requests\">
+      <Declaration><![CDATA[(* Returns TRUE if everything went fine, FALSE if buffer is full *)
+METHOD MR_Append : BOOL 
+VAR_INPUT
+	stData	:	ST_TcpBufferData;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[(* Clear buffer *)
+IF (arrBufferMessage[iLastMessageIndex].iLength = 0) THEN
+	arrBufferMessage[iLastMessageIndex] := stData;
+	MR_Append := TRUE;	
+	
+(* Increment one index and append data to row *)
+ELSIF iLastMessageIndex < iMAX_NUMBER_OF_MESSAGES THEN
+	iLastMessageIndex := iLastMessageIndex + 1;
+	arrBufferMessage[iLastMessageIndex] := stData;
+	MR_Append := TRUE;
+	
+(* Start from 0 index *)
+ELSIF iFirstMessageIndex > 0 THEN
+	iLastMessageIndex := 0;
+	arrBufferMessage[iLastMessageIndex] := stData;
+	MR_Append := TRUE;
+
+(* Buffer is full *)	
+ELSE
+	MR_Append := FALSE;
+	
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_Clear" Id="{4e167701-f75e-4239-bd73-356eaad0ec61}" FolderPath="Requests\">
+      <Declaration><![CDATA[(* Clears buffer *)
+METHOD MR_Clear : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[MEMSET(	destAddr	:=	ADR(arrBufferMessage),
+		fillByte	:=	0,
+		n			:=	SIZEOF(arrBufferMessage));
+		
+iFirstMessageIndex := 0;
+iLastMessageIndex := 0;
+
+MR_Clear := TRUE;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_GetLast" Id="{14baec6b-0f2b-481e-9dfe-a4ea0507a218}" FolderPath="Requests\">
+      <Declaration><![CDATA[(* Gets last data structure from buffer *)
+METHOD MR_GetLast : ST_TcpBufferData
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[MR_GetLast := arrBufferMessage[iLastMessageIndex];]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MR_GetNextAndRemove" Id="{a5e692dc-6490-4a88-b4e5-9412366611b6}" FolderPath="Requests\">
+      <Declaration><![CDATA[(* Gets last data structure from buffer and removes it*)
+METHOD MR_GetNextAndRemove : ST_TcpBufferData;
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[(*Get data *)
+MR_GetNextAndRemove := arrBufferMessage[iFirstMessageIndex];
+
+(*Remove data from index *)
+MEMSET(	destAddr	:=	ADR(arrBufferMessage[iFirstMessageIndex]), 
+		fillByte	:=	0, 
+		n			:=	SIZEOF(arrBufferMessage[iFirstMessageIndex]));
+
+(* Change index of first message if it's not the only message *)
+IF iFirstMessageIndex <> iLastMessageIndex THEN 
+	
+	(* Incerment index *)
+	IF iFirstMessageIndex < iMAX_NUMBER_OF_MESSAGES THEN 
+		iFirstMessageIndex := iFirstMessageIndex + 1;
+	
+	(* End of buffer, go to 0 *)	
+	ELSE 
+		iFirstMessageIndex := 0;
+		
+	END_IF
+	
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_TcpBuffer">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpBuffer.MR_Append">
+      <LineId Id="3" Count="21" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpBuffer.MR_Clear">
+      <LineId Id="3" Count="6" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpBuffer.MR_GetLast">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TcpBuffer.MR_GetNextAndRemove">
+      <LineId Id="3" Count="20" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

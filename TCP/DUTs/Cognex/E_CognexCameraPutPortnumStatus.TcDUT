@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="E_CognexCameraPutPortnumStatus" Id="{04013b12-08de-4a3b-ae56-faa43b10a725}">
+    <Declaration><![CDATA[{attribute 'strict'}
+TYPE E_CognexCameraPutPortnumStatus :
+(
+	WAITING_FOR_STATUS_CODE										:= 2,
+	THE_COMMAND_WAS_EXECUTED_SUCCESSFULLY						:= 1,
+	UNRECOGNIZED_COMMAND 										:= 0,
+	THE_INPUT_IS_INVALID_OR_HAS_EXCEEDED_15_BYTES_IN_LENGTH		:= -1,
+	THE_COMMAND_COULD_NOT_BE_EXECUTED 							:= -2,
+	USER_DOES_NOT_HAVE_FULL_ACCESS	 							:= -6
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

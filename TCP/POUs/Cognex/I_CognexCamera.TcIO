@@ -1,0 +1,199 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <Itf Name="I_CognexCamera" Id="{9f88ac97-7bbb-49e5-ae67-5c31c81e45d6}">
+    <Declaration><![CDATA[INTERFACE I_CognexCamera
+]]></Declaration>
+    <Property Name="Active" Id="{a4f97ae1-7f00-49e9-b06f-4c2c981dd400}">
+      <Declaration><![CDATA[PROPERTY Active : REFERENCE TO BOOL
+]]></Declaration>
+      <Get Name="Get" Id="{c3cb65c8-1713-430f-9217-5eb5080cb507}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+    <Property Name="Busy" Id="{d143887a-c6b0-4339-bf78-b538cf2b63ec}">
+      <Declaration><![CDATA[PROPERTY Busy : REFERENCE TO BOOL
+]]></Declaration>
+      <Get Name="Get" Id="{33a8447f-1290-4e7c-9470-38cd1d7eb36f}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+    <Property Name="Error" Id="{3437dc05-2473-47ad-a4d5-af75e1dcf8c0}">
+      <Declaration><![CDATA[PROPERTY Error : REFERENCE TO BOOL
+]]></Declaration>
+      <Get Name="Get" Id="{a7eb2653-b0d4-4b54-a1fe-09db3c201280}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+    <Property Name="ErrorID" Id="{dc8e439c-840a-46c3-a96d-e3a030c4d800}">
+      <Declaration><![CDATA[PROPERTY ErrorID : REFERENCE TO UDINT
+]]></Declaration>
+      <Get Name="Get" Id="{31f12f92-9aa3-4af0-b953-a14fbc22b85d}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+    <Method Name="MR_Abort" Id="{a2e37b5e-68fe-4906-b7fc-5defe8ec7a89}">
+      <Declaration><![CDATA[METHOD MR_Abort : BOOL
+VAR_INPUT
+END_VAR]]></Declaration>
+    </Method>
+    <Method Name="MR_GetConnections" Id="{b1537c00-d140-471c-a0d6-d935a6514965}">
+      <Declaration><![CDATA[METHOD MR_GetConnections : BOOL
+]]></Declaration>
+    </Method>
+    <Method Name="MR_GetExpr" Id="{b3bee697-5708-40cb-a256-c2eb8f5bfe81}">
+      <Declaration><![CDATA[METHOD MR_GetExpr : BOOL
+VAR_INPUT
+	sCellIndexExpr	: STRING;
+	iColumnExpr	: INT;
+	iRowExpr	: INT;
+END_VAR]]></Declaration>
+    </Method>
+    <Method Name="MR_GetFile" Id="{32d94d49-21e3-4e2f-ac8f-814a91291423}">
+      <Declaration><![CDATA[METHOD MR_GetFile : BOOL
+]]></Declaration>
+    </Method>
+    <Method Name="MR_GetFileList" Id="{1603738e-a8b6-479d-969d-af7d57df1c34}">
+      <Declaration><![CDATA[METHOD MR_GetFileList : BOOL
+]]></Declaration>
+    </Method>
+    <Method Name="MR_GetJob" Id="{c90b2aa7-c301-4d78-8222-dcb6a8a3e0b0}">
+      <Declaration><![CDATA[METHOD MR_GetJob : BOOL
+]]></Declaration>
+    </Method>
+    <Method Name="MR_GetOnline" Id="{4c04f953-a9c1-4b39-8830-015fb32180d4}">
+      <Declaration><![CDATA[METHOD MR_GetOnline : BOOL
+]]></Declaration>
+    </Method>
+    <Method Name="MR_GetPosition" Id="{550de6ae-5589-4514-ab78-b9b0639ec1b9}">
+      <Declaration><![CDATA[METHOD MR_GetPosition : BOOL
+VAR_INPUT
+	sPositionXVariable		: STRING;
+	sPositionYVariable		: STRING;
+	sRotationVariable		: STRING;
+END_VAR
+
+VAR_OUTPUT
+	lrPositionX				: LREAL;
+	lrPositionY				: LREAL;
+	lrRotation				: LREAL;
+END_VAR]]></Declaration>
+    </Method>
+    <Method Name="MR_GetValueEasyBuilder" Id="{32b5e20e-f184-4c76-be42-d92a41492acd}">
+      <Declaration><![CDATA[METHOD MR_GetValueEasyBuilder : BOOL
+VAR_INPUT
+	sEasyBuilderValueName	: STRING;
+END_VAR]]></Declaration>
+    </Method>
+    <Method Name="MR_GetValues" Id="{6fbe24d1-0a52-48c9-8b28-cf34ac282528}">
+      <Declaration><![CDATA[METHOD MR_GetValues : BOOL
+VAR_INPUT
+	sVariable1				: STRING;
+	sVariable2				: STRING;
+	sVariable3				: STRING;
+	sVariable4				: STRING;
+END_VAR
+
+VAR_OUTPUT
+	lrValue1				: LREAL;
+	lrValue2				: LREAL;
+	lrValue3				: LREAL;
+	lrValue4				: LREAL;	
+END_VAR]]></Declaration>
+    </Method>
+    <Method Name="MR_GetValueSpreadsheet" Id="{c1449e62-670b-45f3-b97f-0d50078aa228}">
+      <Declaration><![CDATA[METHOD MR_GetValueSpreadsheet : BOOL
+VAR_INPUT
+	iColumnValueSpreadsheet		: INT;
+	iRowValueSpreadsheet		: INT;
+END_VAR]]></Declaration>
+    </Method>
+    <Method Name="MR_ImageTrigger" Id="{5a9b1882-8d3f-4aeb-834e-f3e0d7a64c83}">
+      <Declaration><![CDATA[METHOD MR_ImageTrigger : BOOL
+]]></Declaration>
+    </Method>
+    <Method Name="MR_Init" Id="{22e7700e-8a69-4b22-bb08-14708a8ba7a4}">
+      <Declaration><![CDATA[METHOD MR_Init : BOOL
+]]></Declaration>
+    </Method>
+    <Method Name="MR_LoadFile" Id="{51a21a37-8d03-473b-8b55-fff900b2311c}">
+      <Declaration><![CDATA[METHOD MR_LoadFile : BOOL
+VAR_INPUT
+	sLoadFileName	: STRING;
+END_VAR]]></Declaration>
+    </Method>
+    <Method Name="MR_PutLive" Id="{3eb907c2-4494-48a5-956c-66741ddafdd4}">
+      <Declaration><![CDATA[METHOD MR_PutLive : BOOL
+VAR_INPUT
+	bEnableLiveAcquisition : INT;
+END_VAR]]></Declaration>
+    </Method>
+    <Method Name="MR_PutPortnum" Id="{86cf7bfc-89f6-4ea1-abf5-12858210dcbe}">
+      <Declaration><![CDATA[METHOD MR_PutPortnum : BOOL
+VAR_INPUT
+	iPortNumber : INT;
+END_VAR]]></Declaration>
+    </Method>
+    <Method Name="MR_PutTimeout" Id="{942eeed2-2f50-4abe-8748-b7f2676736ac}">
+      <Declaration><![CDATA[METHOD MR_PutTimeout : BOOL
+VAR_INPUT
+	iTimeout 	: INT;
+END_VAR]]></Declaration>
+    </Method>
+    <Method Name="MR_PutUpdate" Id="{76c5a35a-dc8d-43ac-b28b-e82e879cc9df}">
+      <Declaration><![CDATA[METHOD MR_PutUpdate : BOOL
+VAR_INPUT
+	iUpdateNumber 	: INT;
+END_VAR]]></Declaration>
+    </Method>
+    <Method Name="MR_PutWatch" Id="{772e6b1b-f6d8-4ccb-9a8f-238f5c13c79d}">
+      <Declaration><![CDATA[METHOD MR_PutWatch : BOOL
+VAR_INPUT
+	iColumnPut 		: INT;
+	iRowPut 		: INT;
+	iOutputEnable	: INT;
+END_VAR]]></Declaration>
+    </Method>
+    <Method Name="MR_Reset" Id="{ceda8c4d-89bb-4891-9cf2-ff8157b7afe2}">
+      <Declaration><![CDATA[METHOD MR_Reset : BOOL
+]]></Declaration>
+    </Method>
+    <Method Name="MR_ResetSystem" Id="{89415c14-48e4-47f9-acae-e93f2624040a}">
+      <Declaration><![CDATA[METHOD MR_ResetSystem : BOOL
+]]></Declaration>
+    </Method>
+    <Method Name="MR_SetJob" Id="{f9cccb3b-0035-458b-bb3d-4a14826cbde6}">
+      <Declaration><![CDATA[METHOD MR_SetJob : BOOL
+VAR_INPUT
+	iJobNumber 		: INT;
+END_VAR]]></Declaration>
+    </Method>
+    <Method Name="MR_SetOnline" Id="{d3f29318-5338-4e22-ab01-d99f70374eb6}">
+      <Declaration><![CDATA[METHOD MR_SetOnline : BOOL
+VAR_INPUT
+	bSetCameraOnline	: INT;
+END_VAR]]></Declaration>
+    </Method>
+    <Method Name="MR_StoreFile" Id="{d82fe3a6-2199-4c93-bdc8-865e4863ac88}">
+      <Declaration><![CDATA[METHOD MR_StoreFile : BOOL
+VAR_INPUT
+	sStoreFileName 	: STRING;
+END_VAR
+]]></Declaration>
+    </Method>
+    <Property Name="Name" Id="{cba141e6-4f7b-4c0a-be34-edac006e7e77}">
+      <Declaration><![CDATA[PROPERTY Name : STRING]]></Declaration>
+      <Get Name="Get" Id="{3ad1a566-3540-4c49-9426-d12f58ea7cc4}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+      <Set Name="Set" Id="{56a34fb8-39b5-4181-ba75-5f067a2be7ec}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Set>
+    </Property>
+    <Property Name="ref_TcpClient" Id="{dccc6afd-85ee-4998-86a5-194b4bbdaf44}">
+      <Declaration><![CDATA[PROPERTY ref_TcpClient : REFERENCE TO FB_TcpClient]]></Declaration>
+      <Get Name="Get" Id="{f3c5d893-849f-4c74-98e9-1fc222f3f9d8}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+  </Itf>
+</TcPlcObject>

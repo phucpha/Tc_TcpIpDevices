@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="E_CognexCameraSetOnlineStatus" Id="{24077345-94ed-48b4-b627-dc7c8e28525a}">
+    <Declaration><![CDATA[{attribute 'strict'}
+TYPE E_CognexCameraSetOnlineStatus :
+(
+	WAITING_FOR_STATUS_CODE																		:= 2,	
+	THE_COMMAND_WAS_EXECUTED_SUCCESSFULLY														:= 1,
+	UNRECOGNIZED_COMMAND 																		:= 0,
+	THE_VALUE_GIVEN_FOR_INT_IS_EITHER_OUT_OF_RANGE_OR_IS_NOT_A_VALID_INTEGER					:= -1,
+	THE_COMMAND_COULD_NOT_BE_EXECUTED 															:= -2,
+	THE_SENSOR_DID_NOT_GO_ONLINE_BECAUSE_IS_SET_OFFLINE_MANUAL_OR_BY_A_DISCRETE_IO_SIGNAL		:= -5,
+	USER_DOES_NOT_HAVE_FULL_ACCESS																:= -6
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

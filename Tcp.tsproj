@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<TcSmProject xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.beckhoff.com/schemas/2012/07/TcSmProject" TcSmVersion="1.0" TcVersion="3.1.4024.56">
+	<DataTypes>
+		<DataType>
+			<Name GUID="{6A6130A7-44C9-483C-9068-CCD59E614F16}" PersistentType="true">ShellTcpIpDeviceEventClass</Name>
+			<DisplayName TxtId=""><![CDATA[NewEventClass_DisplayText]]></DisplayName>
+			<EventId>
+				<Name Id="1">ConnectionLost</Name>
+				<DisplayName TxtId=""><![CDATA[Connection lost (error ID: {0})]]></DisplayName>
+				<Severity>Error</Severity>
+			</EventId>
+			<EventId>
+				<Name Id="2">ClosingSocket</Name>
+				<DisplayName TxtId=""><![CDATA[Closing socket failed (error ID: {0})]]></DisplayName>
+				<Severity>Error</Severity>
+			</EventId>
+			<EventId>
+				<Name Id="3">CreatingListener</Name>
+				<DisplayName TxtId=""><![CDATA[Creating listener socket failed (error ID: {0})]]></DisplayName>
+				<Severity>Error</Severity>
+			</EventId>
+			<EventId>
+				<Name Id="4">CreatingClient</Name>
+				<DisplayName TxtId=""><![CDATA[Creating client socket failed (error ID: {0})]]></DisplayName>
+				<Severity>Error</Severity>
+			</EventId>
+			<EventId>
+				<Name Id="5">ClosingConnection</Name>
+				<DisplayName TxtId=""><![CDATA[Closing connection with client failed (error ID: {0})]]></DisplayName>
+				<Severity>Error</Severity>
+			</EventId>
+			<EventId>
+				<Name Id="6">WaitingForClient</Name>
+				<DisplayName TxtId=""><![CDATA[Waiting for connection with client failed (error ID: {0})]]></DisplayName>
+				<Severity>Error</Severity>
+			</EventId>
+			<Hides>
+				<Hide GUID="{032CB888-F406-4C43-B4F6-4C552219AE95}"/>
+			</Hides>
+		</DataType>
+	</DataTypes>
+	<Project ProjectGUID="{31A3B630-89AE-4C7A-9EC0-C1C2F967AF38}" Target64Bit="true" ShowHideConfigurations="#x3c7">
+		<System>
+			<Tasks>
+				<Task Id="3" Priority="20" CycleTime="100000" AmsPort="350" AdtTasks="true">
+					<Name>PlcTask</Name>
+				</Task>
+			</Tasks>
+		</System>
+		<Plc>
+			<Project File="TCP.xti"/>
+		</Plc>
+	</Project>
+</TcSmProject>

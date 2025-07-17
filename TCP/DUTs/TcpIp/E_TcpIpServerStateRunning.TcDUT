@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="E_TcpIpServerStateRunning" Id="{14667c11-decd-4d6a-9503-7bd696cc57e4}">
+    <Declaration><![CDATA[{attribute 'strict'}
+TYPE E_TcpIpServerStateRunning :
+(
+	TCPIP_SERVER_RUNNING_START_LISTENING 		:= 0,	(* Re/Starting connection procedure *)
+	TCPIP_SERVER_RUNNING_WAIT_FOR_CONNECTION	:= 10,	(* Waiting for any client *)
+	TCPIP_SERVER_RUNNING_DATA_EXCHANGE 			:= 20,	(* Exchanging data with connected client *)
+	TCPIP_SERVER_RUNNING_CLOSE_CONNECTION 		:= 30,	(* Closing current connection on request *)
+	TCPIP_SERVER_RUNNING_CLOSE_CONNECTION_DONE	:= 40	(* Connection closed *)
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

@@ -1,0 +1,14 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="E_TcpIpDeviceStateRecive" Id="{1e68f54e-bbf4-43a8-99d3-077794a66d13}">
+    <Declaration><![CDATA[{attribute 'strict'}
+TYPE E_TcpIpDeviceStateRecive :
+(
+	TCPIP_DEVICE_DATA_EXCHANGE_GET_RECIVED_DATA := 0,	(* Starting data reciving *)
+	TCPIP_DEVICE_DATA_EXCHANGE_RECIVE_DONE		:= 10,	(* Waiting for any data form server *)
+	TCPIP_DEVICE_DATA_EXCHANGE_WRITE_TO_BUFFER  := 20	
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>
