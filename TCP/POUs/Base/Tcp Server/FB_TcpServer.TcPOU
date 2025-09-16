@@ -19,22 +19,7 @@ VAR
 	fbSocketAccept		: FB_SocketAccept;		(* FB to listen for clienncts connection requests *)
 	fbSocketListen		: FB_SocketListen;		(* FB create servers listener socket *)
 	
-END_VAR
-(*
-Version history:
-
-+-------------+------------+----------------+----------+-------------------------------------------------------------------------------------+
-|Date         | Version    | created under  | Author   | Remark                                                                              |
-+=============+============+================+==========+=====================================================================================+
-|2022-01      | 1.0.0.0    | V3.1.4024.22   | ADBO     | Function block created                                                              |
-+-------------+------------+----------------+----------+-------------------------------------------------------------------------------------+
-|2022-02      | 1.1.0.0    | V3.1.4024.22   | ADBO     | - Added fixes to init failure reset (MS_Aborting)                                   |
-|             |            |                |          | - Changed aproach in executing all FB's ( Deleted checking error before executing ) |
-+-------------+------------+----------------+----------+-------------------------------------------------------------------------------------+
-|2022-02      | 1.1.1.0    | V3.1.4024.22   | ADBO     | - Fixed bug when MR_Disconect stucked before switch to connection closing state     |
-+-------------+------------+----------------+----------+-------------------------------------------------------------------------------------+
-
-*)]]></Declaration>
+END_VAR]]></Declaration>
     <Implementation>
       <ST><![CDATA[SUPER^();]]></ST>
     </Implementation>

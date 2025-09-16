@@ -12,20 +12,7 @@ FUNCTION_BLOCK FB_TcpClient EXTENDS FB_TcpDevice
 VAR		
 	(* Function blocks *)
 	fbSocketConnect : FB_SocketConnect;		(* FB used to connect the client to remote server *)
-END_VAR
-(*
-Version history:
-
-+-------------+------------+----------------+----------+-------------------------------------------------------------------------------------+
-|Date         | Version    | created under  | Author   | Remark                                                                              |
-+=============+============+================+==========+=====================================================================================+
-|2022-01      | 1.0.0.0    | V3.1.4024.22   | ADBO     | Function block created                                                              |
-+-------------+------------+----------------+----------+-------------------------------------------------------------------------------------+
-|2022-02      | 1.1.0.0    | V3.1.4024.22   | ADBO     | - Added fixes to init failure reset (MS_Aborting)                                   |
-|             |            |                |          | - Changed aproach in executing all FB's ( Deleted checking error before executing ) |
-+-------------+------------+----------------+----------+-------------------------------------------------------------------------------------+
-
-*)]]></Declaration>
+END_VAR]]></Declaration>
     <Implementation>
       <ST><![CDATA[SUPER^();]]></ST>
     </Implementation>

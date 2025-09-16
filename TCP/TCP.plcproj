@@ -204,6 +204,9 @@
       <DefaultResolution>Tc3_Module, * (Beckhoff Automation GmbH)</DefaultResolution>
       <Namespace>Tc3_Module</Namespace>
     </PlaceholderReference>
+    <PlaceholderReference Include="Tc_Utilities">
+      <DefaultResolution>Tc_Utilities, * (NewEngineer)</DefaultResolution>
+    </PlaceholderReference>
   </ItemGroup>
   <ItemGroup>
     <None Include="TCP.tmc">
